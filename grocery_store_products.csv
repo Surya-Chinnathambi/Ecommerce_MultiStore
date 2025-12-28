@@ -1,0 +1,101 @@
+Product Name,SKU,Price,Cost,Quantity,Category,Description,Brand,Barcode
+Fresh Bananas (per dozen),GRO001,60.00,35.00,500,Fruits & Vegetables,Fresh ripe bananas - Rich in potassium,Farm Fresh,8901234567001
+Tomatoes (1 kg),GRO002,45.00,25.00,300,Fruits & Vegetables,Fresh red tomatoes - Premium quality,Local Farm,8901234567002
+Onions (1 kg),GRO003,35.00,20.00,400,Fruits & Vegetables,Fresh white onions,Local Farm,8901234567003
+Potatoes (1 kg),GRO004,30.00,18.00,450,Fruits & Vegetables,Fresh potatoes for cooking,Farm Fresh,8901234567004
+Green Chillies (100g),GRO005,15.00,8.00,200,Fruits & Vegetables,Fresh green chillies - Spicy,Local Farm,8901234567005
+Fresh Coriander (bunch),GRO006,20.00,10.00,150,Fruits & Vegetables,Fresh coriander leaves,Farm Fresh,8901234567006
+Apples (1 kg),GRO007,180.00,120.00,250,Fruits & Vegetables,Fresh Shimla apples - Premium,Farm Fresh,8901234567007
+Oranges (1 kg),GRO008,100.00,65.00,200,Fruits & Vegetables,Sweet oranges - Vitamin C rich,Farm Fresh,8901234567008
+Carrots (500g),GRO009,25.00,15.00,300,Fruits & Vegetables,Fresh carrots - Crunchy,Local Farm,8901234567009
+Spinach (bunch),GRO010,30.00,18.00,180,Fruits & Vegetables,Fresh spinach leaves - Iron rich,Farm Fresh,8901234567010
+Amul Milk (1L),GRO011,65.00,58.00,500,Dairy & Eggs,Full cream milk - Pasteurized,Amul,8901234567011
+Amul Butter (500g),GRO012,285.00,250.00,200,Dairy & Eggs,Salted butter - Pure,Amul,8901234567012
+Amul Cheese (200g),GRO013,140.00,120.00,150,Dairy & Eggs,Processed cheese - Mozzarella,Amul,8901234567013
+Fresh Eggs (12 pieces),GRO014,90.00,70.00,300,Dairy & Eggs,Farm fresh eggs - Brown,Keggs,8901234567014
+Curd/Dahi (500g),GRO015,45.00,35.00,250,Dairy & Eggs,Fresh curd - Probiotic,Amul,8901234567015
+Paneer (200g),GRO016,95.00,80.00,180,Dairy & Eggs,Fresh cottage cheese,Amul,8901234567016
+White Bread (400g),GRO017,45.00,30.00,200,Bakery,Soft white bread - Sandwich,Britannia,8901234567017
+Brown Bread (400g),GRO018,55.00,38.00,180,Bakery,Whole wheat brown bread,Britannia,8901234567018
+Milk Bread (400g),GRO019,50.00,35.00,150,Bakery,Soft milk bread - Premium,Modern,8901234567019
+Butter Cookies (200g),GRO020,60.00,42.00,220,Bakery,Crunchy butter cookies,Britannia,8901234567020
+Cream Biscuits (120g),GRO021,30.00,20.00,350,Bakery,Cream filled biscuits,Parle,8901234567021
+Marie Gold Biscuits (250g),GRO022,35.00,25.00,400,Bakery,Light tea time biscuits,Britannia,8901234567022
+Tata Tea Gold (1kg),GRO023,480.00,420.00,150,Beverages,Premium tea leaves,Tata,8901234567023
+Nescafe Classic Coffee (50g),GRO024,195.00,170.00,200,Beverages,Instant coffee powder,Nescafe,8901234567024
+Bru Instant Coffee (100g),GRO025,285.00,250.00,180,Beverages,Premium instant coffee,Bru,8901234567025
+Coca Cola (2L),GRO026,95.00,70.00,300,Beverages,Carbonated soft drink,Coca Cola,8901234567026
+Pepsi (2L),GRO027,95.00,70.00,280,Beverages,Carbonated soft drink,Pepsi,8901234567027
+Real Juice Orange (1L),GRO028,120.00,95.00,200,Beverages,100% fruit juice,Real,8901234567028
+Tropicana Orange (1L),GRO029,140.00,115.00,180,Beverages,100% fresh orange juice,Tropicana,8901234567029
+Basmati Rice (5kg),GRO030,450.00,380.00,200,Grains & Pulses,Premium aged basmati rice,India Gate,8901234567030
+Sona Masoori Rice (5kg),GRO031,320.00,270.00,250,Grains & Pulses,Daily use rice - Light,Fortune,8901234567031
+Toor Dal (1kg),GRO032,145.00,125.00,300,Grains & Pulses,Split pigeon peas,Fortune,8901234567032
+Moong Dal (1kg),GRO033,140.00,120.00,280,Grains & Pulses,Split green gram,Fortune,8901234567033
+Chana Dal (1kg),GRO034,135.00,115.00,260,Grains & Pulses,Split chickpeas,Fortune,8901234567034
+Wheat Flour/Atta (5kg),GRO035,240.00,200.00,350,Grains & Pulses,Whole wheat flour - Chakki atta,Aashirvaad,8901234567035
+Maida/All Purpose Flour (1kg),GRO036,45.00,35.00,300,Grains & Pulses,Refined wheat flour,Pillsbury,8901234567036
+Fortune Sunflower Oil (5L),GRO037,650.00,580.00,200,Cooking Oils,Refined sunflower oil,Fortune,8901234567037
+Saffola Gold Oil (5L),GRO038,850.00,750.00,150,Cooking Oils,Blended cooking oil - Heart healthy,Saffola,8901234567038
+Mustard Oil (1L),GRO039,180.00,150.00,180,Cooking Oils,Pure mustard oil - Kachi Ghani,Fortune,8901234567039
+Ghee/Clarified Butter (500ml),GRO040,385.00,340.00,150,Cooking Oils,Pure cow ghee,Amul,8901234567040
+Turmeric Powder (100g),GRO041,45.00,35.00,250,Spices & Masala,Pure turmeric powder,Everest,8901234567041
+Red Chilli Powder (100g),GRO042,50.00,38.00,240,Spices & Masala,Pure red chilli powder - Hot,Everest,8901234567042
+Coriander Powder (100g),GRO043,40.00,30.00,230,Spices & Masala,Pure coriander powder,MDH,8901234567043
+Garam Masala (100g),GRO044,95.00,75.00,200,Spices & Masala,Blended spice mix,MDH,8901234567044
+Cumin Seeds (100g),GRO045,65.00,50.00,220,Spices & Masala,Whole cumin seeds - Jeera,Everest,8901234567045
+Salt/Namak (1kg),GRO046,22.00,15.00,500,Spices & Masala,Iodized table salt,Tata,8901234567046
+Sugar (1kg),GRO047,48.00,40.00,400,Spices & Masala,White refined sugar,Parry's,8901234567047
+Maggi Noodles (560g),GRO048,112.00,95.00,350,Snacks & Instant Food,Instant noodles - 8 pack,Maggi,8901234567048
+Top Ramen (280g),GRO049,72.00,60.00,300,Snacks & Instant Food,Instant noodles - 4 pack,Top Ramen,8901234567049
+Kurkure Masala (90g),GRO050,20.00,15.00,400,Snacks & Instant Food,Crunchy corn snack,Kurkure,8901234567050
+Lays Chips (52g),GRO051,20.00,15.00,450,Snacks & Instant Food,Potato chips - Classic salted,Lays,8901234567051
+Haldiram Namkeen (200g),GRO052,60.00,48.00,280,Snacks & Instant Food,Traditional Indian snack,Haldiram's,8901234567052
+Bingo Mad Angles (72g),GRO053,20.00,15.00,380,Snacks & Instant Food,Spicy corn chips,Bingo,8901234567053
+MTR Ready Mix Dosa (500g),GRO054,80.00,65.00,200,Snacks & Instant Food,Instant dosa mix,MTR,8901234567054
+Kissan Tomato Ketchup (500g),GRO055,95.00,78.00,250,Sauces & Condiments,Tomato sauce,Kissan,8901234567055
+Maggi Sauce (1kg),GRO056,135.00,110.00,200,Sauces & Condiments,Hot & sweet tomato sauce,Maggi,8901234567056
+Veeba Mayonnaise (250g),GRO057,95.00,78.00,180,Sauces & Condiments,Eggless mayonnaise,Veeba,8901234567057
+Pickle Mixed (500g),GRO058,125.00,100.00,200,Sauces & Condiments,Mixed vegetable pickle,Priya,8901234567058
+Mango Pickle (500g),GRO059,135.00,110.00,180,Sauces & Condiments,Spicy mango pickle - Aam ka achar,Mother's Recipe,8901234567059
+Vim Dishwash Gel (500ml),GRO060,95.00,75.00,250,Household,Liquid dishwash - Lemon,Vim,8901234567060
+Harpic Toilet Cleaner (500ml),GRO061,105.00,85.00,200,Household,Disinfectant toilet cleaner,Harpic,8901234567061
+Surf Excel Detergent (1kg),GRO062,180.00,150.00,220,Household,Washing powder - Matic,Surf Excel,8901234567062
+Lizol Floor Cleaner (500ml),GRO063,95.00,75.00,200,Household,Disinfectant floor cleaner,Lizol,8901234567063
+Colin Glass Cleaner (500ml),GRO064,95.00,75.00,180,Household,Glass & surface cleaner,Colin,8901234567064
+Dettol Liquid Soap (200ml),GRO065,98.00,80.00,250,Personal Care,Antibacterial hand wash,Dettol,8901234567065
+Lux Soap (125g),GRO066,42.00,32.00,350,Personal Care,Beauty bathing bar,Lux,8901234567066
+Dove Soap (100g),GRO067,65.00,52.00,280,Personal Care,Moisturizing beauty bar,Dove,8901234567067
+Colgate Toothpaste (200g),GRO068,115.00,95.00,300,Personal Care,Cavity protection toothpaste,Colgate,8901234567068
+Clinic Plus Shampoo (340ml),GRO069,150.00,125.00,220,Personal Care,Strong & long health shampoo,Clinic Plus,8901234567069
+Pantene Shampoo (340ml),GRO070,295.00,250.00,180,Personal Care,Hair fall control shampoo,Pantene,8901234567070
+Fair & Lovely Cream (50g),GRO071,135.00,110.00,200,Personal Care,Fairness cream,Fair & Lovely,8901234567071
+Ponds Face Cream (100ml),GRO072,195.00,165.00,180,Personal Care,Cold cream - Moisturizer,Ponds,8901234567072
+Parachute Coconut Oil (500ml),GRO073,165.00,140.00,250,Personal Care,Pure coconut hair oil,Parachute,8901234567073
+Dabur Amla Hair Oil (500ml),GRO074,195.00,165.00,200,Personal Care,Nourishing hair oil,Dabur,8901234567074
+Horlicks (500g),GRO075,295.00,255.00,200,Health & Nutrition,Health drink - Classic malt,Horlicks,8901234567075
+Boost (500g),GRO076,285.00,245.00,180,Health & Nutrition,Energy drink - Malt based,Boost,8901234567076
+Complan (500g),GRO077,315.00,275.00,160,Health & Nutrition,Nutritional drink - Chocolate,Complan,8901234567077
+Cerelac (300g),GRO078,195.00,170.00,200,Health & Nutrition,Baby cereal - Wheat apple,Nestle,8901234567078
+Protinex (250g),GRO079,385.00,340.00,150,Health & Nutrition,Protein powder - Vanilla,Protinex,8901234567079
+Glucon-D (500g),GRO080,165.00,140.00,220,Health & Nutrition,Energy drink - Glucose powder,Glucon-D,8901234567080
+Masoor Dal (1kg),GRO081,125.00,105.00,270,Grains & Pulses,Red lentils - Split,Fortune,8901234567081
+Urad Dal (1kg),GRO082,155.00,135.00,240,Grains & Pulses,Black gram split,Fortune,8901234567082
+Rajma/Kidney Beans (500g),GRO083,95.00,78.00,200,Grains & Pulses,Dried red kidney beans,Fortune,8901234567083
+Kabuli Chana (500g),GRO084,85.00,70.00,220,Grains & Pulses,White chickpeas,Fortune,8901234567084
+Poha/Beaten Rice (500g),GRO085,45.00,35.00,250,Grains & Pulses,Flattened rice - Thick,Patanjali,8901234567085
+Upma Rava/Semolina (500g),GRO086,42.00,32.00,280,Grains & Pulses,Wheat semolina - Fine,Aashirvaad,8901234567086
+Besan/Gram Flour (500g),GRO087,55.00,42.00,260,Grains & Pulses,Chickpea flour,Aashirvaad,8901234567087
+Green Peas (500g),GRO088,40.00,25.00,180,Fruits & Vegetables,Fresh green peas - Matar,Farm Fresh,8901234567088
+Cauliflower (1 piece),GRO089,45.00,28.00,150,Fruits & Vegetables,Fresh cauliflower - Phool Gobi,Local Farm,8901234567089
+Cabbage (1 piece),GRO090,35.00,22.00,160,Fruits & Vegetables,Fresh cabbage - Patta Gobi,Local Farm,8901234567090
+Cucumber (500g),GRO091,25.00,15.00,200,Fruits & Vegetables,Fresh cucumber - Kheera,Farm Fresh,8901234567091
+Bottle Gourd/Lauki (1 piece),GRO092,35.00,20.00,140,Fruits & Vegetables,Fresh bottle gourd,Farm Fresh,8901234567092
+Ridge Gourd/Turai (500g),GRO093,40.00,25.00,130,Fruits & Vegetables,Fresh ridge gourd,Farm Fresh,8901234567093
+Brinjal/Eggplant (500g),GRO094,35.00,22.00,180,Fruits & Vegetables,Fresh brinjal - Baingan,Local Farm,8901234567094
+Lady Finger/Bhindi (500g),GRO095,45.00,28.00,160,Fruits & Vegetables,Fresh okra,Farm Fresh,8901234567095
+Bitter Gourd/Karela (500g),GRO096,50.00,32.00,120,Fruits & Vegetables,Fresh bitter gourd,Farm Fresh,8901234567096
+Ginger (200g),GRO097,35.00,22.00,200,Fruits & Vegetables,Fresh ginger - Adrak,Local Farm,8901234567097
+Garlic (200g),GRO098,60.00,42.00,180,Fruits & Vegetables,Fresh garlic - Lehsun,Local Farm,8901234567098
+Lemon (250g),GRO099,30.00,18.00,250,Fruits & Vegetables,Fresh lemons - Vitamin C,Farm Fresh,8901234567099
+Grapes Green (500g),GRO100,80.00,55.00,150,Fruits & Vegetables,Fresh green grapes - Seedless,Farm Fresh,8901234567100

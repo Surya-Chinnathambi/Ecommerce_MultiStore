@@ -1,0 +1,21 @@
+SKU,Product Name,Description,Price,Cost,Quantity,Category,Brand
+ELEC-PHONE-001,Samsung Galaxy S24,Latest flagship smartphone with 256GB storage and advanced AI camera,899.99,650.00,50,Electronics,Samsung
+ELEC-LAPTOP-002,Dell XPS 15,Premium 15-inch laptop with Intel i7 processor and 16GB RAM,1299.99,950.00,30,Electronics,Dell
+ELEC-HEADPHONE-003,Sony WH-1000XM5,Industry-leading noise canceling wireless headphones,349.99,220.00,75,Electronics,Sony
+ELEC-TABLET-004,iPad Air 2024,10.9-inch Liquid Retina display with M2 chip,599.99,420.00,40,Electronics,Apple
+ELEC-WATCH-005,Apple Watch Series 9,Advanced health and fitness tracking smartwatch,399.99,280.00,60,Electronics,Apple
+HOME-COFFEE-006,Breville Barista Pro,Semi-automatic espresso machine with milk frother,699.99,450.00,25,Home & Kitchen,Breville
+HOME-VACUUM-007,Dyson V15 Detect,Cordless vacuum with laser dust detection,649.99,420.00,35,Home & Kitchen,Dyson
+HOME-BLENDER-008,Vitamix 5200,Professional-grade high-performance blender,449.99,280.00,45,Home & Kitchen,Vitamix
+FASH-SHOE-009,Nike Air Max 270,Men's running shoes with Air cushioning technology,149.99,80.00,100,Fashion,Nike
+FASH-JACKET-010,Patagonia Down Sweater,Lightweight insulated jacket for outdoor activities,229.99,140.00,55,Fashion,Patagonia
+FASH-WATCH-011,Casio G-Shock GA-2100,Durable analog-digital sports watch,99.99,55.00,80,Fashion,Casio
+BOOK-TECH-012,Clean Code Book,A Handbook of Agile Software Craftsmanship by Robert Martin,39.99,22.00,120,Books,Prentice Hall
+BOOK-BIZ-013,Atomic Habits Book,An Easy & Proven Way to Build Good Habits by James Clear,24.99,14.00,150,Books,Avery
+SPORT-YOGA-014,Manduka ProLite Yoga Mat,High-performance yoga mat with superior cushioning,79.99,45.00,65,Sports,Manduka
+SPORT-BIKE-015,Schwinn IC4 Indoor Bike,Magnetic resistance exercise bike with tablet holder,899.99,600.00,20,Sports,Schwinn
+BEAUTY-SERUM-016,The Ordinary Niacinamide,10% Niacinamide + 1% Zinc serum for blemish-prone skin,5.99,2.50,200,Beauty,The Ordinary
+BEAUTY-PERFUME-017,Chanel No. 5 Eau de Parfum,Classic women's fragrance 100ml,149.99,85.00,45,Beauty,Chanel
+GAME-CONSOLE-018,PlayStation 5 Digital,Next-gen gaming console with 825GB SSD,449.99,350.00,25,Gaming,Sony
+GAME-CONTROLLER-019,Xbox Elite Wireless Controller,Professional-grade gaming controller with customization,179.99,110.00,50,Gaming,Microsoft
+TOY-LEGO-020,LEGO Millennium Falcon,Star Wars Ultimate Collector Series 7541 pieces,849.99,550.00,15,Toys,LEGO

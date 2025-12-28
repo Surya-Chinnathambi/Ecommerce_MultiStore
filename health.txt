@@ -1,0 +1,8 @@
+Invoke-WebRequest : {"detail":"Not Found"}
+At line:1 char:1
++ Invoke-WebRequest -Uri 'http://localhost:8000/api/v1/health' | Select ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (System.Net.HttpWebRequest:HttpWebRequest) [Invoke-WebRequest], WebExc 
+   eption
+    + FullyQualifiedErrorId : WebCmdletWebResponseException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand
+PS C:\ecommerce-platform> 
