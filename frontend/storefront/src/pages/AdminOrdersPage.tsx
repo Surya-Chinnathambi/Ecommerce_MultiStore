@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { api } from '../lib/api'
+import { useLiveOrders } from '../hooks/useLiveOrders'
+import { Wifi, WifiOff, Bell } from 'lucide-react'
 
 interface OrderItem {
     id: string
@@ -37,12 +39,12 @@ interface OrderStats {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    confirmed: 'bg-blue-100 text-blue-800',
-    processing: 'bg-purple-100 text-purple-800',
-    shipped: 'bg-indigo-100 text-indigo-800',
-    delivered: 'bg-green-100 text-green-800',
-    cancelled: 'bg-red-100 text-red-800'
+    pending: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-500/20',
+    confirmed: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20',
+    processing: 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20',
+    shipped: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20',
+    delivered: 'bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/20',
+    cancelled: 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20'
 }
 
 const STATUS_OPTIONS = [
@@ -67,7 +69,11 @@ export default function AdminOrdersPage() {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [updatingStatus, setUpdatingStatus] = useState(false)
 
-    const storeId = localStorage.getItem('store_id') || 'a8e00641-d794-4ae1-a8c0-6bd2bd8fee2a'
+    const { connected, newCount, resetNewCount } = useLiveOrders()
+
+    // For admins, always prefer the store_id assigned to their account.
+    // Fallback to localStorage only for super_admin or edge cases.
+    const storeId = user?.store_id || localStorage.getItem('store_id')
 
     // Check admin access
     useEffect(() => {
@@ -78,15 +84,18 @@ export default function AdminOrdersPage() {
 
     // Fetch stats
     useEffect(() => {
+        if (!storeId) return
         fetchStats()
-    }, [])
+    }, [storeId])
 
     // Fetch orders
     useEffect(() => {
+        if (!storeId) return
         fetchOrders()
-    }, [page, selectedStatus, searchQuery])
+    }, [storeId, page, selectedStatus, searchQuery])
 
     const fetchStats = async () => {
+        if (!storeId) return
         try {
             const response = await api.get(
                 '/orders/admin/stats',
@@ -103,6 +112,7 @@ export default function AdminOrdersPage() {
     }
 
     const fetchOrders = async () => {
+        if (!storeId) return
         setLoading(true)
         try {
             const params: any = {
@@ -182,33 +192,55 @@ export default function AdminOrdersPage() {
         <div className="min-h-screen bg-bg-secondary py-8">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-text-primary">Order Management</h1>
-                    <p className="mt-2 text-text-secondary">Manage all customer orders like Flipkart/Amazon</p>
+                <div className="mb-8 flex items-start justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold text-text-primary">Order Management</h1>
+                        <p className="mt-2 text-text-secondary">Manage all customer orders like Flipkart/Amazon</p>
+                    </div>
+                    {/* Live indicator */}
+                    <div className="flex items-center gap-2">
+                        {newCount > 0 && (
+                            <button
+                                onClick={() => { resetNewCount(); fetchOrders() }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500 text-white text-sm font-semibold animate-pulse"
+                                title="New orders received — click to refresh"
+                            >
+                                <Bell className="h-4 w-4" />
+                                {newCount} new
+                            </button>
+                        )}
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                            connected ? 'bg-green-500/10 text-green-600' : 'bg-bg-tertiary text-text-tertiary'
+                        }`}>
+                            {connected
+                                ? <><Wifi className="h-3.5 w-3.5" />Live</>
+                                : <><WifiOff className="h-3.5 w-3.5" />Offline</>}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Stats Cards */}
                 {stats && (
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                        <div className="bg-bg-primary rounded-lg shadow p-6 border border-border-color">
+                        <div className="card">
                             <h3 className="text-sm font-medium text-text-tertiary">Today's Orders</h3>
                             <p className="mt-2 text-3xl font-bold text-text-primary">{stats.today_orders}</p>
                         </div>
-                        <div className="bg-bg-primary rounded-lg shadow p-6 border border-border-color">
+                        <div className="card">
                             <h3 className="text-sm font-medium text-text-tertiary">Total Revenue</h3>
-                            <p className="mt-2 text-3xl font-bold text-green-600">
+                            <p className="mt-2 text-3xl font-bold text-text-primary">
                                 {formatCurrency(stats.total_revenue)}
                             </p>
                         </div>
-                        <div className="bg-bg-primary rounded-lg shadow p-6 border border-border-color">
+                        <div className="card">
                             <h3 className="text-sm font-medium text-text-tertiary">Pending Orders</h3>
-                            <p className="mt-2 text-3xl font-bold text-yellow-600">
+                            <p className="mt-2 text-3xl font-bold text-text-primary">
                                 {stats.status_counts['pending'] || 0}
                             </p>
                         </div>
-                        <div className="bg-bg-primary rounded-lg shadow p-6 border border-border-color">
+                        <div className="card">
                             <h3 className="text-sm font-medium text-text-tertiary">Delivered</h3>
-                            <p className="mt-2 text-3xl font-bold text-green-600">
+                            <p className="mt-2 text-3xl font-bold text-text-primary">
                                 {stats.status_counts['delivered'] || 0}
                             </p>
                         </div>
@@ -216,7 +248,7 @@ export default function AdminOrdersPage() {
                 )}
 
                 {/* Filters */}
-                <div className="bg-bg-primary rounded-lg shadow p-6 mb-6 border border-border-color">
+                <div className="card mb-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-text-primary mb-2">
@@ -228,7 +260,7 @@ export default function AdminOrdersPage() {
                                     setSelectedStatus(e.target.value)
                                     setPage(1)
                                 }}
-                                className="w-full px-3 py-2 border border-border-color rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary bg-bg-primary text-text-primary"
+                                className="input"
                                 aria-label="Filter orders by status"
                             >
                                 <option value="">All Orders</option>
@@ -251,7 +283,7 @@ export default function AdminOrdersPage() {
                                     setPage(1)
                                 }}
                                 placeholder="Search by order number, customer name, email, or phone"
-                                className="w-full px-3 py-2 border border-border-color rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary bg-bg-primary text-text-primary"
+                                className="input"
                             />
                         </div>
                     </div>
@@ -271,30 +303,30 @@ export default function AdminOrdersPage() {
                     ) : (
                         <>
                             <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-border-color">
-                                    <thead className="bg-bg-tertiary">
+                                <table className="table min-w-full">
+                                    <thead>
                                         <tr>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">
                                                 Order Details
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">
                                                 Customer
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">
                                                 Status
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">
                                                 Amount
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">
                                                 Date
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">
                                                 Actions
                                             </th>
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-bg-primary divide-y divide-border-color">
+                                    <tbody className="bg-bg-primary">
                                         {orders.map((order) => (
                                             <tr key={order.id} className="hover:bg-bg-tertiary">
                                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -321,7 +353,7 @@ export default function AdminOrdersPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${STATUS_COLORS[order.order_status]}`}>
+                                                    <span className={`badge ${STATUS_COLORS[order.order_status] || 'bg-bg-tertiary/50 text-text-secondary'}`}>
                                                         {order.order_status}
                                                     </span>
                                                     <div className="text-xs text-text-tertiary mt-1">

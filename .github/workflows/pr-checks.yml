@@ -1,0 +1,151 @@
+name: PR Checks
+
+# Fast feedback loop for pull requests — runs lint & type checks only.
+# No Docker build, no deploy. Completes in ~2 minutes.
+on:
+  pull_request:
+    branches: [main, staging, develop]
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "18"
+
+jobs:
+  # ── Backend quick checks ────────────────────────────────────────────────────
+  lint-backend:
+    name: Backend — Lint & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dev tools
+        run: pip install -r backend/requirements-dev.txt
+
+      - name: flake8 (fatal errors)
+        run: cd backend && flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: flake8 (style — annotate PR)
+        uses: rbialon/flake8-annotations@v1
+        with:
+          error_codes: W,C,E
+          working-directory: backend
+        continue-on-error: true
+
+      - name: black
+        run: cd backend && black --check --diff app
+
+      - name: isort
+        run: cd backend && isort --check-only --diff app
+
+      - name: mypy
+        run: cd backend && mypy app --ignore-missing-imports --no-error-summary
+        continue-on-error: true
+
+  # ── Unit tests (no integration/DB) ─────────────────────────────────────────
+  unit-tests:
+    name: Backend — Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint-backend
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_ecommerce
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+
+      - name: Run Alembic migrations
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_ecommerce
+          SECRET_KEY: ci-pr-test-secret
+        run: cd backend && alembic upgrade head
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_ecommerce
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: ci-pr-test-secret
+          ENVIRONMENT: testing
+          CACHE_ENABLED: "false"
+          DB_POOL_RECYCLE: "300"
+          DB_POOL_TIMEOUT: "10"
+          DB_STATEMENT_TIMEOUT_MS: "5000"
+          LOG_LEVEL: WARNING
+        run: |
+          cd backend
+          pytest tests/ -v --tb=short -q --no-header
+
+  # ── Frontend quick checks ───────────────────────────────────────────────────
+  lint-frontend:
+    name: Frontend — Type Check & Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/storefront/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend/storefront && npm ci
+
+      - name: Type check
+        run: cd frontend/storefront && npm run type-check
+
+      - name: Lint
+        run: cd frontend/storefront && npm run lint
+
+  # ── Security (lightweight — no Trivy) ──────────────────────────────────────
+  security-quick:
+    name: Security — Bandit + pip-audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bandit SAST
+        run: |
+          pip install bandit[toml]
+          bandit -r backend/app -ll -ii --exclude backend/app/tests
+
+      - name: pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/requirements.txt

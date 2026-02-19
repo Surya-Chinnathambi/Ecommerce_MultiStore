@@ -3,7 +3,7 @@ Storefront API Endpoints
 Public-facing endpoints for customers
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, func
 from typing import Optional, List, Dict, Any
 from uuid import UUID
@@ -19,6 +19,8 @@ from app.schemas.schemas import (
     ProductResponse, CategoryResponse, StoreResponse, APIResponse
 )
 from app.models.models import Product, Category, Store, Order, OrderItem, OrderStatus, PaymentStatus
+from app.models.marketplace_models import PincodeDelivery, Coupon, CouponUsage, CouponType
+from app.models.review_models import ProductReview
 from app.core.redis import redis_client, CacheKeys
 from app.core.config import settings
 
@@ -134,24 +136,41 @@ async def list_storefront_products(
     per_page: int = Query(20, ge=1, le=100),
     category_id: Optional[UUID] = None,
     search: Optional[str] = None,
-    sort_by: str = Query("name", pattern="^(name|price|newest)$"),
+    sort_by: str = Query("name", pattern="^(name|price|newest|rating)$"),
+    order: str = Query("asc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_read_db)
 ):
     """
     List products for storefront
     
     - Only shows active, in-stock products
-    - Customer-friendly sorting
+    - Customer-friendly sorting with direction
+    - Supports sort_by: name, price, newest, rating
     """
     store_id = request.state.store_id
     
-    query = db.query(Product).filter(
-        and_(
-            Product.store_id == store_id,
-            Product.is_active == True,
-            Product.is_in_stock == True
+    # For rating sort we need to join with reviews
+    if sort_by == "rating":
+        query = db.query(
+            Product,
+            func.coalesce(func.avg(ProductReview.rating), 0).label("avg_rating")
+        ).outerjoin(
+            ProductReview, ProductReview.product_id == Product.id
+        ).filter(
+            and_(
+                Product.store_id == store_id,
+                Product.is_active == True,
+                Product.is_in_stock == True
+            )
+        ).group_by(Product.id)
+    else:
+        query = db.query(Product).filter(
+            and_(
+                Product.store_id == store_id,
+                Product.is_active == True,
+                Product.is_in_stock == True
+            )
         )
-    )
     
     if category_id:
         query = query.filter(Product.category_id == category_id)
@@ -161,39 +180,50 @@ async def list_storefront_products(
     
     # Apply sorting
     if sort_by == "price":
-        query = query.order_by(Product.selling_price.asc())
+        query = query.order_by(Product.selling_price.asc() if order == "asc" else Product.selling_price.desc())
     elif sort_by == "newest":
         query = query.order_by(Product.created_at.desc())
-    else:
-        query = query.order_by(Product.name.asc())
+    elif sort_by == "rating":
+        avg_col = func.coalesce(func.avg(ProductReview.rating), 0)
+        query = query.order_by(avg_col.asc() if order == "asc" else avg_col.desc())
+    else:  # name
+        query = query.order_by(Product.name.asc() if order == "asc" else Product.name.desc())
     
     total = query.count()
     offset = (page - 1) * per_page
-    products = query.offset(offset).limit(per_page).all()
+    rows = query.offset(offset).limit(per_page).all()
     
+    # rows may be (Product, avg_rating) tuples when sort_by==rating
+    products_out = []
+    for row in rows:
+        p = row[0] if isinstance(row, tuple) else row
+        avg_rating = float(row[1]) if isinstance(row, tuple) else None
+        product_dict = {
+            "id": str(p.id),
+            "name": p.name,
+            "slug": p.slug,
+            "short_description": p.short_description,
+            "mrp": p.mrp,
+            "selling_price": p.selling_price,
+            "discount_percent": p.discount_percent,
+            "thumbnail": p.thumbnail,
+            "images": p.images,
+            "category_id": str(p.category_id) if p.category_id else None,
+            "is_featured": p.is_featured,
+            "unit": p.unit,
+            "quantity": p.quantity,
+            "is_in_stock": p.is_in_stock,
+        }
+        if avg_rating is not None:
+            product_dict["average_rating"] = round(avg_rating, 2)
+        products_out.append(product_dict)
+
     total_pages = (total + per_page - 1) // per_page
-    
+
     return APIResponse(
         success=True,
         data={
-            "products": [
-                {
-                    "id": str(p.id),
-                    "name": p.name,
-                    "slug": p.slug,
-                    "short_description": p.short_description,
-                    "mrp": p.mrp,
-                    "selling_price": p.selling_price,
-                    "discount_percent": p.discount_percent,
-                    "thumbnail": p.thumbnail,
-                    "images": p.images,
-                    "is_featured": p.is_featured,
-                    "unit": p.unit,
-                    "quantity": p.quantity,
-                    "is_in_stock": p.is_in_stock
-                }
-                for p in products
-            ],
+            "products": products_out,
             "total": total,
             "page": page,
             "per_page": per_page,
@@ -378,8 +408,58 @@ async def create_order(
     # Calculate totals
     tax = subtotal * 0.18  # 18% GST
     shipping_cost = 0.0 if subtotal > 500 else 50.0  # Free shipping above ₹500
-    total = subtotal + tax + shipping_cost
-    
+    discount_amount = 0.0
+    free_shipping = False
+    applied_coupon = None
+
+    # ── Coupon handling ───────────────────────────────────────────────────────
+    coupon_code = (order_data.get('coupon_code') or '').upper().strip()
+    if coupon_code:
+        coupon = db.query(Coupon).filter(
+            func.upper(Coupon.code) == coupon_code,
+            Coupon.store_id == store_id,
+            Coupon.is_active == True,
+        ).first()
+        if coupon:
+            now = datetime.utcnow()
+            coupon_valid = (
+                (not coupon.valid_from or coupon.valid_from <= now) and
+                (not coupon.valid_until or coupon.valid_until >= now) and
+                (not coupon.usage_limit or coupon.used_count < coupon.usage_limit) and
+                (not coupon.min_order_amount or subtotal >= coupon.min_order_amount)
+            )
+            if coupon.per_user_limit and current_user:
+                user_usage = db.query(func.count(CouponUsage.id)).filter(
+                    CouponUsage.coupon_id == coupon.id,
+                    CouponUsage.user_id == current_user.id,
+                ).scalar() or 0
+                coupon_valid = coupon_valid and (user_usage < coupon.per_user_limit)
+
+            if coupon_valid:
+                item_count = sum(i['quantity'] for i in items_with_prices)
+                if coupon.type == CouponType.PERCENT:
+                    discount_amount = subtotal * (coupon.value / 100.0)
+                    if coupon.max_discount_amount:
+                        discount_amount = min(discount_amount, coupon.max_discount_amount)
+                elif coupon.type == CouponType.FLAT:
+                    discount_amount = min(coupon.value, subtotal)
+                elif coupon.type == CouponType.FREE_SHIPPING:
+                    free_shipping = True
+                elif coupon.type == CouponType.BUY_X_GET_Y:
+                    buy_x = coupon.buy_quantity or 1
+                    get_y = coupon.get_quantity or 1
+                    sets = item_count // (buy_x + get_y) if (buy_x + get_y) else 0
+                    if sets > 0 and item_count:
+                        per_item = subtotal / item_count
+                        discount_amount = per_item * get_y * sets
+                discount_amount = round(discount_amount, 2)
+                if free_shipping:
+                    shipping_cost = 0.0
+                applied_coupon = coupon
+
+    total = subtotal + tax + (0.0 if free_shipping else shipping_cost) - discount_amount
+    total = max(total, 0)
+
     # Generate order number
     order_number = f"ORD-{''.join(random.choices(string.ascii_uppercase + string.digits, k=8))}"
     
@@ -433,7 +513,36 @@ async def create_order(
     
     db.commit()
     db.refresh(order)
-    
+
+    # ── Record coupon usage after order is persisted ──────────────────────────
+    if applied_coupon:
+        try:
+            usage = CouponUsage(
+                coupon_id=applied_coupon.id,
+                user_id=current_user.id if current_user else None,
+                order_id=order.id,
+                store_id=store_id,
+                discount_applied=discount_amount,
+            )
+            db.add(usage)
+            applied_coupon.used_count = (applied_coupon.used_count or 0) + 1
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Coupon usage recording failed for order {order_number}: {e}")
+
+    # ── Notify store admins via WebSocket ─────────────────────────────────────
+    try:
+        from app.services.websocket_manager import notify_new_order
+        await notify_new_order(
+            store_id=str(store_id),
+            order_id=str(order.id),
+            order_number=order_number,
+            total_amount=float(total),
+            customer_name=order_data.get('customer_name', '')
+        )
+    except Exception:
+        pass  # Non-critical
+
     logger.info(f"Order {order_number} created for store {store_id}")
     
     return APIResponse(
@@ -441,7 +550,12 @@ async def create_order(
         data={
             "order_number": order_number,
             "order_id": str(order.id),
+            "subtotal": subtotal,
+            "discount_amount": discount_amount,
+            "tax": tax,
+            "shipping_cost": shipping_cost,
             "total": total,
+            "coupon_applied": applied_coupon.code if applied_coupon else None,
             "status": order.order_status.value,
             "created_at": order.created_at.isoformat()
         },
@@ -561,7 +675,7 @@ async def track_order(
                     "total": float(item.total),
                     "product": {
                         "id": item.product.id if item.product else None,
-                        "image_url": item.product.image_url if item.product else None
+                        "image_url": (item.product.images[0] if item.product and getattr(item.product, "images", None) else None)
                     } if item.product else None
                 }
                 for item in order.items
@@ -574,5 +688,64 @@ async def track_order(
             }
         }
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PINCODE DELIVERY ESTIMATOR
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.get("/pincode/{pincode}", summary="Check delivery availability for a pincode")
+def check_pincode_delivery(
+    pincode: str,
+    request: Request,
+    db: Session = Depends(get_read_db),
+):
+    """Return delivery ETA and serviceability for a given pincode."""
+    store_id = request.state.store_id
+
+    record = (
+        db.query(PincodeDelivery)
+        .filter(
+            PincodeDelivery.store_id == store_id,
+            PincodeDelivery.pincode == pincode,
+        )
+        .first()
+    )
+
+    if record and not record.is_serviceable:
+        raise HTTPException(
+            status_code=400,
+            detail={"serviceable": False, "message": "Delivery not available to this pincode."},
+        )
+
+    if record:
+        return {
+            "success": True,
+            "data": {
+                "pincode": pincode,
+                "serviceable": True,
+                "standard_days": record.standard_days,
+                "express_days": record.express_days,
+                "same_day": record.same_day,
+                "cod_available": record.cod_available,
+                "state": record.state,
+                "city": record.city,
+            },
+        }
+
+    # Pincode not in database — return best-effort generic estimate
+    return {
+        "success": True,
+        "data": {
+            "pincode": pincode,
+            "serviceable": True,
+            "standard_days": 5,
+            "express_days": None,
+            "same_day": False,
+            "cod_available": True,
+            "state": None,
+            "city": None,
+        },
+    }
 
 

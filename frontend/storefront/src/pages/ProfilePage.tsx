@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { authApi, orderApi } from '../lib/api'
-import { Trash2, Plus, MapPin } from 'lucide-react'
+import { Trash2, Plus, MapPin, User, Lock, ShoppingBag, LogOut, Home, Briefcase } from 'lucide-react'
 
 interface Address {
   id: string
@@ -207,50 +207,60 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-bg-secondary py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-bg-primary shadow rounded-lg border border-border-color">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-border-color">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-2xl font-bold text-text-primary">My Account</h1>
-                <p className="text-sm text-text-secondary">{user.email}</p>
+        <div className="card p-0 overflow-hidden">
+
+          {/* ── Profile Header ── */}
+          <div className="bg-gradient-to-br from-theme-primary to-theme-accent p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <span className="text-2xl font-black text-white">
+                    {(user.full_name || user.email).charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-white">{user.full_name || 'My Account'}</h1>
+                  <p className="text-sm text-white/70">{user.email}</p>
+                </div>
               </div>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 border border-border-color rounded-md text-sm font-medium text-text-primary hover:bg-bg-tertiary"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-all"
               >
+                <LogOut className="h-4 w-4" />
                 Logout
               </button>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="border-b border-border-color">
-            <nav className="-mb-px flex space-x-8 px-6">
-              {[
-                { key: 'profile', label: 'Profile' },
-                { key: 'password', label: 'Password' },
-                { key: 'addresses', label: 'Addresses' },
-                { key: 'orders', label: 'Order History' },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key as any)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.key
+          {/* ── Tabs ── */}
+          <div className="flex border-b border-border-color overflow-x-auto">
+            {[
+              { key: 'profile', label: 'Profile', Icon: User },
+              { key: 'password', label: 'Password', Icon: Lock },
+              { key: 'addresses', label: 'Addresses', Icon: MapPin },
+              { key: 'orders', label: 'Order History', Icon: ShoppingBag },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as any)}
+                className={`flex items-center gap-2 px-5 py-4 text-sm font-medium border-b-2 whitespace-nowrap transition-all ${activeTab === tab.key
                     ? 'border-theme-primary text-theme-primary'
                     : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border-color'
-                    }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
+                  }`}
+              >
+                <tab.Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Content */}
           <div className="p-6">
             {message.text && (
-              <div className={`mb-4 p-4 rounded-md ${message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+              <div className={`mb-4 p-4 rounded-xl border text-sm font-medium ${message.type === 'success'
+                  ? 'bg-green-500/10 border-green-500/20 text-green-600'
+                  : 'bg-red-500/10 border-red-500/20 text-red-600'
                 }`}>
                 {message.text}
               </div>

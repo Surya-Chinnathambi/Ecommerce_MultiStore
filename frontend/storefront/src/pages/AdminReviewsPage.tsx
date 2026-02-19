@@ -152,13 +152,13 @@ export default function AdminReviewsPage() {
                     {/* Search */}
                     <div className="md:col-span-2">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary" size={20} />
                             <input
                                 type="text"
                                 placeholder="Search reviews..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                className="input pl-10"
                             />
                         </div>
                     </div>
@@ -169,7 +169,7 @@ export default function AdminReviewsPage() {
                             value={filterStatus}
                             onChange={(e) => setFilterStatus(e.target.value as any)}
                             aria-label="Filter by review status"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                            className="input"
                         >
                             <option value="all">All Reviews</option>
                             <option value="approved">Approved</option>
@@ -179,28 +179,28 @@ export default function AdminReviewsPage() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-border-color">
                     <div className="text-center">
-                        <p className="text-2xl font-bold text-purple-600">{filteredReviews.length}</p>
-                        <p className="text-sm text-gray-600">Total Reviews</p>
+                        <p className="text-2xl font-bold text-theme-primary">{filteredReviews.length}</p>
+                        <p className="text-sm text-text-tertiary">Total Reviews</p>
                     </div>
                     <div className="text-center">
                         <p className="text-2xl font-bold text-green-600">
                             {filteredReviews.filter((r) => r.is_approved).length}
                         </p>
-                        <p className="text-sm text-gray-600">Approved</p>
+                        <p className="text-sm text-text-tertiary">Approved</p>
                     </div>
                     <div className="text-center">
                         <p className="text-2xl font-bold text-yellow-600">
                             {filteredReviews.filter((r) => !r.is_approved).length}
                         </p>
-                        <p className="text-sm text-gray-600">Pending</p>
+                        <p className="text-sm text-text-tertiary">Pending</p>
                     </div>
                     <div className="text-center">
-                        <p className="text-2xl font-bold text-blue-600">
+                        <p className="text-2xl font-bold text-theme-primary">
                             {filteredReviews.filter((r) => r.is_featured).length}
                         </p>
-                        <p className="text-sm text-gray-600">Featured</p>
+                        <p className="text-sm text-text-tertiary">Featured</p>
                     </div>
                 </div>
             </div>
@@ -208,14 +208,14 @@ export default function AdminReviewsPage() {
             {/* Reviews List */}
             <div className="space-y-4">
                 {filteredReviews.length === 0 ? (
-                    <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                        <MessageSquare className="mx-auto h-16 w-16 text-gray-300 mb-4" />
-                        <p className="text-xl text-gray-600">No reviews found</p>
-                        <p className="text-gray-500 mt-2">Reviews will appear here once customers start reviewing products</p>
+                    <div className="card p-12 text-center">
+                        <MessageSquare className="mx-auto h-16 w-16 text-text-tertiary mb-4" />
+                        <p className="text-xl text-text-secondary">No reviews found</p>
+                        <p className="text-text-tertiary mt-2">Reviews will appear here once customers start reviewing products</p>
                     </div>
                 ) : (
                     filteredReviews.map((review) => (
-                        <div key={review.id} className="bg-white rounded-lg shadow-md p-6">
+                        <div key={review.id} className="card">
                             <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                     {/* Rating & User */}
@@ -228,30 +228,30 @@ export default function AdminReviewsPage() {
                                                     className={
                                                         i < review.rating
                                                             ? 'fill-yellow-400 text-yellow-400'
-                                                            : 'text-gray-300'
+                                                            : 'text-text-tertiary'
                                                     }
                                                 />
                                             ))}
                                         </div>
-                                        <span className="font-semibold text-gray-900">{review.user_name}</span>
+                                        <span className="font-semibold text-text-primary">{review.user_name}</span>
                                         {review.is_verified_purchase && (
-                                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                                            <span className="badge bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/20">
                                                 Verified Purchase
                                             </span>
                                         )}
                                         {review.is_featured && (
-                                            <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded">
+                                            <span className="badge bg-theme-primary/10 text-theme-primary border-theme-primary/20">
                                                 Featured
                                             </span>
                                         )}
                                     </div>
 
                                     {/* Review Content */}
-                                    {review.title && <h3 className="font-semibold text-lg mb-2">{review.title}</h3>}
-                                    {review.review_text && <p className="text-gray-700 mb-3">{review.review_text}</p>}
+                                    {review.title && <h3 className="font-semibold text-lg text-text-primary mb-2">{review.title}</h3>}
+                                    {review.review_text && <p className="text-text-secondary mb-3">{review.review_text}</p>}
 
                                     {/* Metadata */}
-                                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                                    <div className="flex items-center gap-4 text-sm text-text-tertiary">
                                         <span>{new Date(review.created_at).toLocaleDateString()}</span>
                                         <span>👍 {review.helpful_count}</span>
                                         <span>👎 {review.not_helpful_count}</span>
@@ -259,14 +259,14 @@ export default function AdminReviewsPage() {
 
                                     {/* Store Responses */}
                                     {review.responses && review.responses.length > 0 && (
-                                        <div className="mt-4 pl-4 border-l-4 border-purple-200 bg-purple-50 p-4 rounded">
+                                        <div className="mt-4 pl-4 border-l-4 border-theme-primary bg-theme-primary/10 p-4 rounded">
                                             {review.responses.map((response) => (
                                                 <div key={response.id}>
-                                                    <p className="font-semibold text-purple-700">
+                                                    <p className="font-semibold text-theme-primary">
                                                         {response.responder_name}
                                                     </p>
-                                                    <p className="text-gray-700 mt-1">{response.response_text}</p>
-                                                    <p className="text-xs text-gray-500 mt-2">
+                                                    <p className="text-text-secondary mt-1">{response.response_text}</p>
+                                                    <p className="text-xs text-text-tertiary mt-2">
                                                         {new Date(response.created_at).toLocaleDateString()}
                                                     </p>
                                                 </div>
@@ -286,9 +286,9 @@ export default function AdminReviewsPage() {
                                             })
                                         }
                                         aria-label={review.is_approved ? 'Reject review' : 'Approve review'}
-                                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${review.is_approved
-                                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        className={`btn ${review.is_approved
+                                            ? 'bg-green-500/10 text-green-700 dark:text-green-300 hover:bg-green-500/20'
+                                            : 'btn-secondary'
                                             }`}
                                     >
                                         {review.is_approved ? (
@@ -307,16 +307,16 @@ export default function AdminReviewsPage() {
                                             })
                                         }
                                         aria-label="Toggle featured status"
-                                        className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+                                        className="btn bg-theme-primary/10 text-theme-primary border-theme-primary/20 hover:bg-theme-primary/20"
                                     >
-                                        <Star size={20} className={review.is_featured ? 'fill-purple-700' : ''} />
+                                        <Star size={20} className={review.is_featured ? 'fill-theme-primary' : ''} />
                                     </button>
 
                                     {/* Respond */}
                                     <button
                                         onClick={() => setSelectedReview(review)}
                                         aria-label="Respond to review"
-                                        className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                                        className="btn bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20"
                                     >
                                         <MessageSquare size={20} />
                                     </button>
@@ -329,7 +329,7 @@ export default function AdminReviewsPage() {
                                             }
                                         }}
                                         aria-label="Delete review"
-                                        className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                                        className="btn bg-red-500/10 text-red-700 dark:text-red-300 hover:bg-red-500/20"
                                     >
                                         <Trash2 size={20} />
                                     </button>
@@ -343,10 +343,10 @@ export default function AdminReviewsPage() {
             {/* Response Modal */}
             {selectedReview && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg max-w-2xl w-full p-6">
-                        <h2 className="text-2xl font-bold mb-4">Respond to Review</h2>
+                    <div className="bg-bg-primary border border-border-color rounded-lg max-w-2xl w-full p-6">
+                        <h2 className="text-2xl font-bold text-text-primary mb-4">Respond to Review</h2>
 
-                        <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                        <div className="bg-bg-tertiary p-4 rounded-lg mb-4 border border-border-color">
                             <div className="flex items-center gap-2 mb-2">
                                 {[...Array(5)].map((_, i) => (
                                     <Star
@@ -355,34 +355,34 @@ export default function AdminReviewsPage() {
                                         className={
                                             i < selectedReview.rating
                                                 ? 'fill-yellow-400 text-yellow-400'
-                                                : 'text-gray-300'
+                                                : 'text-text-tertiary'
                                         }
                                     />
                                 ))}
-                                <span className="font-semibold">{selectedReview.user_name}</span>
+                                <span className="font-semibold text-text-primary">{selectedReview.user_name}</span>
                             </div>
-                            {selectedReview.title && <h3 className="font-semibold mb-2">{selectedReview.title}</h3>}
-                            <p className="text-gray-700">{selectedReview.review_text}</p>
+                            {selectedReview.title && <h3 className="font-semibold text-text-primary mb-2">{selectedReview.title}</h3>}
+                            <p className="text-text-secondary">{selectedReview.review_text}</p>
                         </div>
 
                         <div className="mb-4">
-                            <label className="block text-sm font-medium mb-2">Your Name</label>
+                            <label className="block text-sm font-medium text-text-primary mb-2">Your Name</label>
                             <input
                                 type="text"
                                 value={responderName}
                                 onChange={(e) => setResponderName(e.target.value)}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                className="input"
                                 placeholder="Store Manager"
                             />
                         </div>
 
                         <div className="mb-4">
-                            <label className="block text-sm font-medium mb-2">Your Response</label>
+                            <label className="block text-sm font-medium text-text-primary mb-2">Your Response</label>
                             <textarea
                                 value={responseText}
                                 onChange={(e) => setResponseText(e.target.value)}
                                 rows={4}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                className="input"
                                 placeholder="Thank you for your review..."
                             />
                         </div>
@@ -391,7 +391,7 @@ export default function AdminReviewsPage() {
                             <button
                                 onClick={() => handleSubmitResponse(selectedReview.id)}
                                 disabled={submitResponseMutation.isPending}
-                                className="flex-1 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                                className="btn btn-primary flex-1 py-3"
                             >
                                 {submitResponseMutation.isPending ? 'Posting...' : 'Post Response'}
                             </button>
@@ -400,7 +400,7 @@ export default function AdminReviewsPage() {
                                     setSelectedReview(null)
                                     setResponseText('')
                                 }}
-                                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                                className="btn btn-secondary px-6 py-3"
                             >
                                 Cancel
                             </button>

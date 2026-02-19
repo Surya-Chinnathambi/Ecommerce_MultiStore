@@ -1,15 +1,15 @@
-﻿import { Link, useNavigate } from 'react-router-dom'
-import { ShoppingCart, Menu, User, LogOut, Activity, CreditCard, Search } from 'lucide-react'
+﻿import { Link, useLocation } from 'react-router-dom'
+import { ShoppingCart, Menu, X, LogOut, Activity, CreditCard, Heart, Bell, LayoutGrid, HelpCircle } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
+import { useWishlistStore } from '@/store/wishlistStore'
 import { useQuery } from '@tanstack/react-query'
 import { storeApi } from '@/lib/api'
-import { useState } from 'react'
-import GlobalSearch from '@/components/GlobalSearch'
+import { useState, useEffect } from 'react'
+import SearchAutocomplete from '@/components/SearchAutocomplete'
 import ThemeToggle from '@/components/ThemeToggle'
 
 export default function Header() {
-    const navigate = useNavigate()
     const getStoreId = () => {
         const params = new URLSearchParams(window.location.search)
         return params.get('store_id') || localStorage.getItem('store_id') || ''
@@ -22,16 +22,24 @@ export default function Header() {
 
     const totalItems = useCartStore((state) => state.getTotalItems())
     const { user, isAuthenticated, logout } = useAuthStore()
+    const wishlistCount = useWishlistStore((s) => s.items.length)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
     const [userMenuOpen, setUserMenuOpen] = useState(false)
-    const [searchQuery, setSearchQuery] = useState('')
+    const [scrolled, setScrolled] = useState(false)
+    const location = useLocation()
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault()
-        if (searchQuery.trim()) {
-            navigate(buildLink(`/products?search=${encodeURIComponent(searchQuery)}`))
-        }
-    }
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 16)
+        window.addEventListener('scroll', onScroll, { passive: true })
+        return () => window.removeEventListener('scroll', onScroll)
+    }, [])
+
+    const isActive = (path: string) => location.pathname.startsWith(path)
+
+    // User initials avatar
+    const initials = user?.full_name
+        ? user.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+        : 'U'
 
     const { data: storeData } = useQuery({
         queryKey: ['store-info'],
@@ -45,31 +53,31 @@ export default function Header() {
     }
 
     return (
-        <header className="bg-bg-primary shadow-sm sticky top-0 z-50 border-b border-border-color">
+        <header className={`sticky top-0 z-50 border-b border-border-color transition-all duration-300 ${scrolled ? 'bg-bg-primary/95 backdrop-blur-md shadow-md' : 'bg-bg-primary'}`}>
             <div className="container mx-auto px-4">
                 {/* Top bar */}
-                <div className="py-3 border-b border-border-color">
-                    <div className="flex items-center justify-between gap-4">
-                        <Link to={buildLink("/home")} className="flex items-center space-x-3 flex-shrink-0">
+                <div className="py-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <Link to={buildLink("/home")} className="flex items-center gap-3 min-w-0 flex-shrink-0">
                             {storeData?.logo_url && (
-                                <img src={storeData.logo_url} alt={storeData.name} className="h-10 w-10 object-contain" />
+                                <img src={storeData.logo_url} alt={storeData.name} className="h-10 w-10 object-contain flex-shrink-0" />
                             )}
-                            <div>
-                                <h1 className="text-2xl font-bold text-theme-primary">
+                            <div className="min-w-0">
+                                <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-theme-primary truncate">
                                     {storeData?.name || 'Loading...'}
                                 </h1>
                                 {storeData?.city && (
-                                    <p className="text-sm text-text-secondary">{storeData.city}</p>
+                                    <p className="text-xs sm:text-sm text-text-secondary truncate">{storeData.city}</p>
                                 )}
                             </div>
                         </Link>
 
                         {/* Global Search - desktop */}
                         <div className="hidden md:flex flex-1 max-w-2xl">
-                            <GlobalSearch />
+                            <SearchAutocomplete />
                         </div>
 
-                        <div className="flex items-center space-x-4">
+                        <div className="flex items-center gap-2 sm:gap-3">
                             {/* Theme Toggle */}
                             <ThemeToggle />
 
@@ -78,15 +86,17 @@ export default function Header() {
                                 <div className="relative">
                                     <button
                                         onClick={() => setUserMenuOpen(!userMenuOpen)}
-                                        className="flex items-center space-x-2 text-text-primary hover:text-theme-primary"
+                                        className="flex items-center gap-2 rounded-xl border border-border-color bg-bg-primary px-2 py-1.5 text-text-primary hover:bg-bg-tertiary/60 transition-colors"
                                         aria-label="User menu"
                                     >
-                                        <User className="h-6 w-6" />
-                                        <span className="hidden md:inline text-sm font-medium">{user.full_name}</span>
+                                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-theme-primary to-theme-accent flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                                            {initials}
+                                        </div>
+                                        <span className="hidden md:inline text-sm font-medium pr-1">{user.full_name.split(' ')[0]}</span>
                                     </button>
 
                                     {userMenuOpen && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-bg-primary rounded-md shadow-lg py-1 z-50 border border-border-color">
+                                        <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-lg border border-border-color bg-bg-primary shadow-lg py-1 z-50">
                                             <Link
                                                 to="/profile"
                                                 className="block px-4 py-2 text-sm text-text-primary hover:bg-bg-tertiary"
@@ -101,6 +111,20 @@ export default function Header() {
                                             >
                                                 📦 My Orders
                                             </Link>
+                                            <Link
+                                                to="/wishlist"
+                                                className="block px-4 py-2 text-sm text-text-primary hover:bg-bg-tertiary"
+                                                onClick={() => setUserMenuOpen(false)}
+                                            >
+                                                ❤️ My Wishlist
+                                            </Link>
+                                            <Link
+                                                to="/seller/dashboard"
+                                                className="block px-4 py-2 text-sm text-text-primary hover:bg-bg-tertiary"
+                                                onClick={() => setUserMenuOpen(false)}
+                                            >
+                                                🏪 Seller Dashboard
+                                            </Link>
                                             {user.role === 'admin' && (
                                                 <>
                                                     <Link
@@ -109,6 +133,41 @@ export default function Header() {
                                                         onClick={() => setUserMenuOpen(false)}
                                                     >
                                                         🛍️ Manage Orders
+                                                    </Link>
+                                                    <Link
+                                                        to="/admin/returns"
+                                                        className="block px-4 py-2 text-sm text-text-primary hover:bg-bg-tertiary"
+                                                        onClick={() => setUserMenuOpen(false)}
+                                                    >
+                                                        🔄 Manage Returns
+                                                    </Link>
+                                                    <Link
+                                                        to="/admin/coupons"
+                                                        className="block px-4 py-2 text-sm text-text-primary hover:bg-bg-tertiary"
+                                                        onClick={() => setUserMenuOpen(false)}
+                                                    >
+                                                        🏷️ Manage Coupons
+                                                    </Link>
+                                                    <Link
+                                                        to="/admin/ads"
+                                                        className="block px-4 py-2 text-sm text-text-primary hover:bg-bg-tertiary"
+                                                        onClick={() => setUserMenuOpen(false)}
+                                                    >
+                                                        📢 Ads & Promotions
+                                                    </Link>
+                                                    <Link
+                                                        to="/admin/inventory-alerts"
+                                                        className="block px-4 py-2 text-sm text-text-primary hover:bg-bg-tertiary"
+                                                        onClick={() => setUserMenuOpen(false)}
+                                                    >
+                                                        🔔 Inventory Alerts
+                                                    </Link>
+                                                    <Link
+                                                        to="/admin/reviews"
+                                                        className="block px-4 py-2 text-sm text-text-primary hover:bg-bg-tertiary"
+                                                        onClick={() => setUserMenuOpen(false)}
+                                                    >
+                                                        ⭐ Manage Reviews
                                                     </Link>
                                                     <Link
                                                         to="/monitoring"
@@ -147,25 +206,57 @@ export default function Header() {
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex items-center space-x-3">
+                                <div className="hidden sm:flex items-center gap-2">
                                     <Link
                                         to="/login"
-                                        className="text-text-primary hover:text-theme-primary font-medium text-sm"
+                                        className="btn btn-secondary text-sm"
                                     >
                                         Login
                                     </Link>
                                     <Link
                                         to="/register"
-                                        className="bg-theme-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-theme-primary-hover"
+                                        className="btn btn-primary text-sm"
                                     >
                                         Sign Up
                                     </Link>
                                 </div>
                             )}
 
+                            {/* Wishlist */}
+                            {isAuthenticated && (
+                                <Link
+                                    to={buildLink("/wishlist")}
+                                    className="relative rounded-lg border border-border-color bg-bg-primary p-2 text-text-primary hover:bg-bg-tertiary/60"
+                                    aria-label="My wishlist"
+                                >
+                                    <Heart className="h-6 w-6" />
+                                    {wishlistCount > 0 && (
+                                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                            {wishlistCount}
+                                        </span>
+                                    )}
+                                </Link>
+                            )}
+
+                            {/* Notifications bell */}
+                            {isAuthenticated && (
+                                <Link
+                                    to={buildLink("/notifications")}
+                                    className="rounded-lg border border-border-color bg-bg-primary p-2 text-text-primary hover:bg-bg-tertiary/60"
+                                    aria-label="Notifications"
+                                    title="Notifications"
+                                >
+                                    <Bell className="h-6 w-6" />
+                                </Link>
+                            )}
+
                             {/* Cart */}
-                            <Link to={buildLink("/cart")} className="relative" aria-label="Shopping cart">
-                                <ShoppingCart className="h-6 w-6 text-text-primary" />
+                            <Link
+                                to={buildLink("/cart")}
+                                className="relative rounded-lg border border-border-color bg-bg-primary p-2 text-text-primary hover:bg-bg-tertiary/60"
+                                aria-label="Shopping cart"
+                            >
+                                <ShoppingCart className="h-6 w-6" />
                                 {totalItems > 0 && (
                                     <span className="absolute -top-2 -right-2 bg-theme-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                                         {totalItems}
@@ -176,78 +267,92 @@ export default function Header() {
                             {/* Mobile menu button */}
                             <button
                                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                                className="md:hidden"
+                                className="md:hidden rounded-lg border border-border-color bg-bg-primary p-2 text-text-primary hover:bg-bg-tertiary/60 transition-colors"
                                 aria-label="Toggle mobile menu"
                             >
-                                <Menu className="h-6 w-6" />
+                                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
                             </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Navigation */}
-                <nav className={`${mobileMenuOpen ? 'block' : 'hidden'} md:block py-3`}>
-                    <ul className="flex flex-col md:flex-row md:items-center md:space-x-8 space-y-2 md:space-y-0">
-                        <li>
-                            <Link to={buildLink("/home")} className="text-text-primary hover:text-theme-primary font-medium">
-                                Home
-                            </Link>
-                        </li>
-                        <li>
-                            <Link to={buildLink("/products")} className="text-text-primary hover:text-theme-primary font-medium">
-                                Products
-                            </Link>
-                        </li>
-                        <li>
-                            <Link to={buildLink("/track-order")} className="text-text-primary hover:text-theme-primary font-medium">
-                                Track Order
-                            </Link>
-                        </li>
-                        {isAuthenticated && (
+                <nav className={`${mobileMenuOpen ? 'block animate-slide-in-left' : 'hidden'} md:block pb-3`}>
+                    <div className="rounded-xl border border-border-color bg-bg-secondary/50 px-3 py-2 md:border-0 md:bg-transparent md:px-0 md:py-0">
+                        <ul className="flex flex-col md:flex-row md:items-center md:gap-1 space-y-0.5 md:space-y-0">
                             <li>
-                                <Link to={buildLink("/referrals")} className="text-text-primary hover:text-theme-primary font-medium">
-                                    Refer & Earn
+                                <Link to={buildLink("/home")} className={`nav-link ${isActive('/home') ? 'nav-link-active' : ''}`}>
+                                    Home
                                 </Link>
                             </li>
-                        )}
-                        {user?.role === 'admin' || user?.role === 'super_admin' ? (
-                            <>
-                                <li>
-                                    <Link to={buildLink("/admin")} className="text-theme-primary hover:text-theme-primary-hover font-bold">
-                                        Admin Dashboard
-                                    </Link>
-                                </li>
-                                <li>
-                                    <Link to={buildLink("/admin/product-import")} className="text-theme-accent hover:text-theme-primary font-bold">
-                                        Import Products
-                                    </Link>
-                                </li>
-                            </>
-                        ) : null}
-                        {isAuthenticated && (
-                            <li className="md:hidden">
-                                <Link to={buildLink("/profile")} className="text-text-primary hover:text-theme-primary font-medium">
-                                    My Profile
+                            <li>
+                                <Link to={buildLink("/products")} className={`nav-link ${isActive('/products') ? 'nav-link-active' : ''}`}>
+                                    Products
                                 </Link>
                             </li>
+                            <li>
+                                <Link to={buildLink("/categories")} className={`nav-link ${isActive('/categories') ? 'nav-link-active' : ''}`}>
+                                    <LayoutGrid className="inline h-3.5 w-3.5 mr-1" />
+                                    Categories
+                                </Link>
+                            </li>
+                            <li>
+                                <Link to={buildLink("/track-order")} className={`nav-link ${isActive('/track-order') ? 'nav-link-active' : ''}`}>
+                                    Track Order
+                                </Link>
+                            </li>
+                            <li>
+                                <Link to="/help" className={`nav-link ${isActive('/help') ? 'nav-link-active' : ''}`}>
+                                    <HelpCircle className="inline h-3.5 w-3.5 mr-1" />
+                                    Help
+                                </Link>
+                            </li>
+                            {isAuthenticated && (
+                                <li>
+                                    <Link to={buildLink("/referrals")} className={`nav-link ${isActive('/referrals') ? 'nav-link-active' : ''}`}>
+                                        Refer &amp; Earn
+                                    </Link>
+                                </li>
+                            )}
+                            {user?.role === 'admin' || user?.role === 'super_admin' ? (
+                                <>
+                                    <li>
+                                        <Link to={buildLink("/admin")} className={`nav-link font-semibold ${isActive('/admin') ? 'nav-link-active' : 'text-theme-primary'}`}>
+                                            Admin
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link to={buildLink("/admin/product-import")} className="nav-link text-theme-accent font-semibold">
+                                            Import Products
+                                        </Link>
+                                    </li>
+                                </>
+                            ) : null}
+                            {isAuthenticated && (
+                                <li className="md:hidden">
+                                    <Link to={buildLink("/profile")} className={`nav-link ${isActive('/profile') ? 'nav-link-active' : ''}`}>
+                                        My Profile
+                                    </Link>
+                                </li>
+                            )}
+                        </ul>
+
+                        {!isAuthenticated && (
+                            <div className="mt-2 flex gap-2 sm:hidden">
+                                <Link to="/login" className="btn btn-secondary flex-1 text-center text-sm">
+                                    Login
+                                </Link>
+                                <Link to="/register" className="btn btn-primary flex-1 text-center text-sm">
+                                    Sign Up
+                                </Link>
+                            </div>
                         )}
-                    </ul>
+                    </div>
                 </nav>
 
                 {/* Mobile search */}
                 <div className="md:hidden pb-3">
-                    <form onSubmit={handleSearch}>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                placeholder="Search products..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border border-border-color bg-bg-secondary text-text-primary rounded-lg focus:ring-2 focus:ring-theme-primary"
-                            />
-                            <Search className="absolute left-3 top-2.5 h-5 w-5 text-text-tertiary" />
-                        </div>
-                    </form>
+                    <SearchAutocomplete />
                 </div>
             </div>
         </header>

@@ -386,7 +386,23 @@ async def import_from_csv(
                 errors.append({'sku': product_data.get('sku'), 'error': str(e)})
         
         db.commit()
-        
+
+        # Fire-and-forget Typesense indexing for created/updated products
+        try:
+            from app.services.search_indexer import index_product as _ts_index
+            ids_to_index = created_ids + updated_ids
+            if ids_to_index:
+                bulk = db.query(__import__('app.models.models', fromlist=['Product']).Product).filter(
+                    __import__('app.models.models', fromlist=['Product']).Product.id.in_(ids_to_index)
+                ).all()
+                for p in bulk:
+                    try:
+                        _ts_index(p)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
         return FileImportResponse(
             total_rows=len(products) + len(errors),
             processed=len(products),

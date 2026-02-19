@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { useCartStore } from '../store/cartStore'
 import { api } from '../lib/api'
+import { toast } from '../components/ui/Toaster'
+import { Search, X } from 'lucide-react'
 
 interface OrderItem {
     id: string
@@ -36,12 +39,12 @@ interface Order {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    confirmed: 'bg-blue-100 text-blue-800 border-blue-300',
-    processing: 'bg-purple-100 text-purple-800 border-purple-300',
-    shipped: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-    delivered: 'bg-green-100 text-green-800 border-green-300',
-    cancelled: 'bg-red-100 text-red-800 border-red-300'
+    pending: 'bg-yellow-500/10 text-yellow-500 border-border-color',
+    confirmed: 'bg-theme-primary/10 text-theme-primary border-border-color',
+    processing: 'bg-theme-accent/10 text-theme-accent border-border-color',
+    shipped: 'bg-bg-tertiary text-text-primary border-border-color',
+    delivered: 'bg-green-500/10 text-green-500 border-border-color',
+    cancelled: 'bg-red-500/10 text-red-500 border-border-color'
 }
 
 const STATUS_ICONS: Record<string, string> = {
@@ -61,6 +64,33 @@ export default function MyOrdersPage() {
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+    const [searchQuery, setSearchQuery] = useState('')
+    const [statusFilter, setStatusFilter] = useState('all')
+
+    const STATUS_CHIPS = [
+        { key: 'all', label: 'All Orders' },
+        { key: 'pending', label: 'Pending' },
+        { key: 'confirmed', label: 'Confirmed' },
+        { key: 'processing', label: 'Processing' },
+        { key: 'shipped', label: 'Shipped' },
+        { key: 'delivered', label: 'Delivered' },
+        { key: 'cancelled', label: 'Cancelled' },
+    ]
+
+    const filteredOrders = useMemo(() => {
+        let result = orders
+        if (statusFilter !== 'all') {
+            result = result.filter(o => o.order_status === statusFilter)
+        }
+        if (searchQuery.trim()) {
+            const q = searchQuery.trim().toLowerCase()
+            result = result.filter(o =>
+                o.order_number.toLowerCase().includes(q) ||
+                o.items.some(i => i.product_name.toLowerCase().includes(q))
+            )
+        }
+        return result
+    }, [orders, statusFilter, searchQuery])
 
     useEffect(() => {
         if (!user) {
@@ -118,6 +148,30 @@ export default function MyOrdersPage() {
         return messages[status] || status
     }
 
+    const handleReorder = (order: Order) => {
+        const addItem = useCartStore.getState().addItem
+        let count = 0
+        order.items.forEach(item => {
+            if (item.product?.id) {
+                addItem({
+                    product_id: item.product.id,
+                    name: item.product_name,
+                    price: item.unit_price,
+                    image: item.product.image_url ?? undefined,
+                    max_quantity: 99,
+                    quantity: item.quantity,
+                })
+                count++
+            }
+        })
+        if (count > 0) {
+            toast.success(`${count} item${count > 1 ? 's' : ''} added to cart`)
+            navigate('/cart')
+        } else {
+            toast.error('No items available to reorder')
+        }
+    }
+
     if (!user) {
         return null
     }
@@ -126,9 +180,48 @@ export default function MyOrdersPage() {
         <div className="min-h-screen bg-bg-secondary py-8">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-text-primary">My Orders</h1>
-                    <p className="mt-2 text-text-secondary">Track and manage your orders</p>
+                <div className="mb-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                        <div>
+                            <h1 className="text-3xl font-bold text-text-primary">My Orders</h1>
+                            <p className="mt-1 text-text-secondary">Track and manage your orders</p>
+                        </div>
+                        {/* Search */}
+                        <div className="relative w-full sm:w-72">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary pointer-events-none" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                placeholder="Search orders or products…"
+                                className="input pl-9 pr-8 w-full text-sm"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
+                                    aria-label="Clear search"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    {/* Status filter chips */}
+                    <div className="flex flex-wrap gap-2">
+                        {STATUS_CHIPS.map(chip => (
+                            <button
+                                key={chip.key}
+                                onClick={() => setStatusFilter(chip.key)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${statusFilter === chip.key
+                                        ? 'bg-theme-primary text-white border-theme-primary'
+                                        : 'bg-bg-primary text-text-secondary border-border-color hover:border-theme-primary/50'
+                                    }`}
+                            >
+                                {chip.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {loading ? (
@@ -136,23 +229,39 @@ export default function MyOrdersPage() {
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-primary mx-auto"></div>
                         <p className="mt-4 text-text-secondary">Loading your orders...</p>
                     </div>
-                ) : orders.length === 0 ? (
+                ) : filteredOrders.length === 0 ? (
                     <div className="bg-bg-primary rounded-lg shadow p-12 text-center border border-border-color">
                         <div className="text-6xl mb-4">📦</div>
-                        <h2 className="text-2xl font-semibold text-text-primary mb-2">No orders yet</h2>
-                        <p className="text-text-secondary mb-6">Start shopping to see your orders here</p>
-                        <button
-                            onClick={() => navigate('/products')}
-                            className="bg-theme-primary text-white px-6 py-3 rounded-lg hover:bg-theme-primary-hover transition-colors"
-                        >
-                            Browse Products
-                        </button>
+                        <h2 className="text-2xl font-semibold text-text-primary mb-2">
+                            {searchQuery || statusFilter !== 'all' ? 'No matching orders' : 'No orders yet'}
+                        </h2>
+                        <p className="text-text-secondary mb-6">
+                            {searchQuery || statusFilter !== 'all'
+                                ? 'Try a different search term or filter'
+                                : 'Start shopping to see your orders here'
+                            }
+                        </p>
+                        {searchQuery || statusFilter !== 'all' ? (
+                            <button
+                                onClick={() => { setSearchQuery(''); setStatusFilter('all') }}
+                                className="btn btn-outline"
+                            >
+                                Clear Filters
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => navigate('/products')}
+                                className="bg-theme-primary text-white px-6 py-3 rounded-lg hover:bg-theme-primary-hover transition-colors"
+                            >
+                                Browse Products
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <>
                         {/* Orders List */}
                         <div className="space-y-6">
-                            {orders.map((order) => (
+                            {filteredOrders.map((order) => (
                                 <div key={order.id} className="bg-bg-primary rounded-lg shadow overflow-hidden border border-border-color">
                                     {/* Order Header */}
                                     <div className="bg-bg-tertiary px-6 py-4 border-b border-border-color">
@@ -177,7 +286,7 @@ export default function MyOrdersPage() {
                                     </div>
 
                                     {/* Order Status */}
-                                    <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white">
+                                    <div className="px-6 py-4 bg-bg-tertiary/30">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center space-x-3">
                                                 <span className="text-3xl">{STATUS_ICONS[order.order_status]}</span>
@@ -244,12 +353,29 @@ export default function MyOrdersPage() {
                                                     {order.payment_status}
                                                 </span>
                                             </div>
-                                            <button
-                                                onClick={() => navigate(`/track-order?order=${order.order_number}`)}
-                                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                            >
-                                                Track Order →
-                                            </button>
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={() => handleReorder(order)}
+                                                    className="flex items-center gap-1.5 text-theme-primary hover:text-theme-accent text-sm font-medium transition-colors"
+                                                    title="Add all items to cart again"
+                                                >
+                                                    🔄 Reorder
+                                                </button>
+                                                <button
+                                                    onClick={() => navigate(`/track-order?order=${order.order_number}`)}
+                                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                                >
+                                                    Track Order →
+                                                </button>
+                                                {order.order_status === 'delivered' && (
+                                                    <button
+                                                        onClick={() => navigate(`/returns/new/${order.id}`)}
+                                                        className="text-orange-600 hover:text-orange-800 text-sm font-medium"
+                                                    >
+                                                        Return / Refund →
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -407,13 +533,13 @@ export default function MyOrdersPage() {
                                         setSelectedOrder(null)
                                         navigate(`/track-order?order=${selectedOrder.order_number}`)
                                     }}
-                                    className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                    className="flex-1 btn btn-primary"
                                 >
                                     Track Order
                                 </button>
                                 <button
                                     onClick={() => setSelectedOrder(null)}
-                                    className="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                                    className="flex-1 btn btn-secondary"
                                 >
                                     Close
                                 </button>

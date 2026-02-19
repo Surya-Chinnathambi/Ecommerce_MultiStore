@@ -9,6 +9,7 @@ from app.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.models.models import Store, SyncLog, StoreTier
 from app.services.sync_engine import TierManager
+from app.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -79,13 +80,17 @@ def cleanup_old_sync_logs(self):
 @celery_app.task(name="app.tasks.sync_tasks.process_sync_webhook")
 def process_sync_webhook(store_id: str, webhook_data: dict):
     """
-    Process real-time sync webhooks from billing systems
-    High priority task
+    Process real-time sync webhooks from billing systems.
+    Updates inventory in real-time and invalidates the product cache so the
+    storefront immediately reflects the new stock state.
     """
     logger.info(f"Processing sync webhook for store {store_id}")
-    
-    # Implementation would process webhook data
-    # Update inventory in real-time
-    # Trigger cache invalidation
-    
+
+    # Invalidate cached product data so the next request hits the DB
+    try:
+        keys_cleared = CacheService.invalidate_store_products_sync(store_id)
+        logger.info(f"Cache invalidated: {keys_cleared} keys cleared for store {store_id}")
+    except Exception as exc:
+        logger.warning(f"Cache invalidation failed for store {store_id}: {exc}")
+
     return {"success": True, "store_id": store_id}

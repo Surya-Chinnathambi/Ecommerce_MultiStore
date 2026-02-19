@@ -71,10 +71,24 @@ export default function PromotionalBanner() {
         <div className="relative w-full h-[400px] md:h-[500px] overflow-hidden rounded-xl">
             {/* Banner Image */}
             <div
-                className="absolute inset-0 bg-cover bg-center transition-all duration-500 cursor-pointer"
-                style={{ backgroundImage: `url(${currentBanner.image_url})` }}
+                className="absolute inset-0 transition-all duration-500 cursor-pointer"
                 onClick={() => handleBannerClick(currentBanner)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleBannerClick(currentBanner)
+                    }
+                }}
+                aria-label={`Open promotion: ${currentBanner.title}`}
             >
+                <img
+                    src={currentBanner.image_url}
+                    alt={currentBanner.title}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    loading="eager"
+                />
                 {/* Gradient Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
 
@@ -90,9 +104,9 @@ export default function PromotionalBanner() {
                             </p>
                         )}
                         {currentBanner.link_url && (
-                            <button className="px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-full hover:from-pink-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-lg">
+                            <div className="inline-flex px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-full transition-all duration-300 shadow-lg">
                                 Shop Now
-                            </button>
+                            </div>
                         )}
                     </div>
                 </div>

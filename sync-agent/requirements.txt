@@ -1,3 +1,10 @@
 # Sync Agent Requirements
 requests==2.31.0
 python-dotenv==1.0.0
+# KasaPOS Integration
+mysql-connector-python==8.2.0  # For MySQL database connection
+openpyxl==3.1.2               # For Excel file support
+
+# Optional but recommended
+schedule==1.2.1               # For scheduled tasks
+watchdog==3.0.0               # For file change monitoring (CSV/Excel exports)

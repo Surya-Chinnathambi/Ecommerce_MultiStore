@@ -14,6 +14,10 @@ from app.models.models import Product, Store, SyncLog, StoreTier
 from app.schemas.schemas import SyncProductItem, SyncBatchResponse
 from app.core.redis import redis_client, CacheKeys
 from app.core.config import settings
+try:
+    from app.services.search_indexer import index_product as _ts_index
+except Exception:
+    _ts_index = None
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +152,11 @@ class SyncEngine:
             existing_product.is_in_stock = existing_product.quantity > 0
             
             self.db.commit()
+            if _ts_index:
+                try:
+                    _ts_index(existing_product)
+                except Exception as e:
+                    logger.warning(f"Typesense index failed: {e}")
             logger.info(f"Updated product {product_data.external_id}")
             return "updated"
         else:
@@ -177,6 +186,11 @@ class SyncEngine:
             
             self.db.add(new_product)
             self.db.commit()
+            if _ts_index:
+                try:
+                    _ts_index(new_product)
+                except Exception as e:
+                    logger.warning(f"Typesense index failed: {e}")
             logger.info(f"Created product {product_data.external_id}")
             return "created"
     

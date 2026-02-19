@@ -1,0 +1,31 @@
+# Development & CI-only dependencies
+# Install with: pip install -r requirements-dev.txt
+# (requirements.txt is the production install)
+
+# Linting & formatting
+black==23.12.0
+flake8==6.1.0
+isort==5.13.2
+flake8-bugbear==24.1.17
+flake8-comprehensions==3.14.0
+
+# Type checking
+mypy==1.7.1
+types-requests==2.31.0.20240125
+types-python-dateutil==2.8.19.20240106
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+faker==20.1.0
+factory-boy==3.3.0
+
+# Security scanning
+bandit[toml]==1.7.6
+pip-audit==2.6.1
+
+# Dev utilities
+ipython==8.19.0
+pre-commit==3.6.0

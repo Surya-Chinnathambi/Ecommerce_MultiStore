@@ -40,6 +40,12 @@ const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     const [loading, setLoading] = useState(true);
     const [, setCodProcessing] = useState(false);
 
+    const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+    const isStripeConfigured =
+        typeof stripePublishableKey === 'string' &&
+        stripePublishableKey.trim().startsWith('pk_') &&
+        !stripePublishableKey.includes('your_publishable_key_here');
+
     useEffect(() => {
         fetchPaymentMethods();
     }, []);
@@ -47,7 +53,13 @@ const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     const fetchPaymentMethods = async () => {
         try {
             const response = await api.get('/payments/methods');
-            const methods = response.data.filter((m: PaymentMethod) => m.enabled);
+            let methods = response.data.filter((m: PaymentMethod) => m.enabled);
+
+            // Hide Stripe unless the storefront has a real publishable key configured.
+            if (!isStripeConfigured) {
+                methods = methods.filter((m: PaymentMethod) => m.gateway !== 'stripe');
+            }
+
             setPaymentMethods(methods);
 
             // Auto-select first available method

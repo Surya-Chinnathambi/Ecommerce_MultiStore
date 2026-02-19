@@ -1,0 +1,223 @@
+groups:
+  # API Health Alerts
+  - name: api_health
+    rules:
+      - alert: APIHighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) 
+          / 
+          sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API error rate"
+          description: "API error rate is above 5% (current: {{ $value | printf \"%.2f\" }}%)"
+
+      - alert: APIHighLatency
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency"
+          description: "95th percentile latency is above 2s (current: {{ $value | printf \"%.2f\" }}s)"
+
+      - alert: APIDown
+        expr: up{job="backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend API is down"
+          description: "Backend pod {{ $labels.pod }} is not responding"
+
+  # Database Alerts
+  - name: database_health
+    rules:
+      - alert: PostgresHighConnections
+        expr: |
+          pg_stat_activity_count 
+          / 
+          pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection pool near limit"
+          description: "Connection usage is at {{ $value | printf \"%.0f\" }}%"
+
+      - alert: PostgresReplicationLag
+        expr: pg_replication_lag_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL replication lag"
+          description: "Replica lag is {{ $value | printf \"%.0f\" }} seconds"
+
+      - alert: PostgresDeadlocks
+        expr: rate(pg_stat_database_deadlocks[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL deadlocks detected"
+          description: "Deadlocks occurring at {{ $value | printf \"%.2f\" }}/second"
+
+      - alert: PostgresSlowQueries
+        expr: |
+          rate(pg_stat_statements_mean_time_seconds{quantile="0.95"}[5m]) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL slow queries"
+          description: "95th percentile query time is {{ $value | printf \"%.2f\" }}s"
+
+  # Redis Alerts
+  - name: redis_health
+    rules:
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis memory is at {{ $value | printf \"%.0f\" }}%"
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance is not responding"
+
+      - alert: RedisRejectedConnections
+        expr: rate(redis_rejected_connections_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis rejecting connections"
+          description: "Redis is rejecting connections"
+
+  # Celery Alerts
+  - name: celery_health
+    rules:
+      - alert: CeleryQueueBacklog
+        expr: celery_queue_length > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery queue backlog"
+          description: "Queue {{ $labels.queue }} has {{ $value }} pending tasks"
+
+      - alert: CeleryTaskFailures
+        expr: |
+          rate(celery_task_failed_total[5m]) 
+          / 
+          rate(celery_task_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Celery task failure rate"
+          description: "Task failure rate is {{ $value | printf \"%.0f\" }}%"
+
+      - alert: CeleryWorkerDown
+        expr: celery_workers < 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Celery workers below minimum"
+          description: "Only {{ $value }} workers running"
+
+  # Infrastructure Alerts
+  - name: infrastructure
+    rules:
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "Node {{ $labels.instance }} CPU usage is {{ $value | printf \"%.0f\" }}%"
+
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Node {{ $labels.instance }} memory usage is {{ $value | printf \"%.0f\" }}%"
+
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space"
+          description: "Node {{ $labels.instance }} has {{ $value | printf \"%.0f\" }}% disk space remaining"
+
+      - alert: PodRestartLoop
+        expr: increase(kube_pod_container_status_restarts_total[1h]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod restart loop"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last hour"
+
+  # Business Metrics Alerts
+  - name: business_metrics
+    rules:
+      - alert: OrderProcessingDelayed
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(order_processing_duration_seconds_bucket[5m])) by (le)
+          ) > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Order processing is slow"
+          description: "95th percentile order processing time is {{ $value | printf \"%.0f\" }}s"
+
+      - alert: PaymentFailureRate
+        expr: |
+          rate(payment_failed_total[5m]) 
+          / 
+          rate(payment_attempts_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High payment failure rate"
+          description: "Payment failure rate is {{ $value | printf \"%.0f\" }}%"
+
+      - alert: LowSyncSuccessRate
+        expr: |
+          rate(sync_success_total[15m]) 
+          / 
+          rate(sync_attempts_total[15m]) < 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "POS sync issues"
+          description: "Sync success rate is {{ $value | printf \"%.0f\" }}%"

@@ -135,7 +135,7 @@ class PaymentResponse(BaseModel):
     error_message: Optional[str]
     error_code: Optional[str]
     
-    metadata: Dict[str, Any]
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
     notes: Optional[str]
     
     initiated_at: datetime
@@ -200,7 +200,7 @@ class RefundResponse(BaseModel):
     error_message: Optional[str]
     error_code: Optional[str]
     
-    metadata: Dict[str, Any]
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
     notes: Optional[str]
     
     initiated_at: datetime

@@ -39,4 +39,11 @@ from app.models.billing_models import (
     SyncStatus,
     EntityType
 )
-
+from app.models.marketplace_models import (  # noqa: F401
+    ProductVariantGroup, ProductVariant,
+    WishlistItem,
+    Seller, SellerProduct, SellerPayout,
+    ReturnRequest, ReturnItem,
+    Coupon, CouponUsage,
+    PincodeDelivery,
+)

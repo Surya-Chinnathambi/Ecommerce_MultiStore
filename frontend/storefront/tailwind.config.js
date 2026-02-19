@@ -7,6 +7,9 @@ export default {
     darkMode: 'class',
     theme: {
         extend: {
+            fontFamily: {
+                sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'sans-serif'],
+            },
             colors: {
                 // Theme-aware colors using CSS variables
                 'bg-primary': 'rgb(var(--bg-primary) / <alpha-value>)',

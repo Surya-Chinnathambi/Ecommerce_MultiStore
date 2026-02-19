@@ -2,7 +2,24 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
-import { User, Mail, Phone, Lock, UserPlus, ShoppingBag } from 'lucide-react'
+import { User, Mail, Phone, Lock, UserPlus, ShoppingBag, CheckCircle } from 'lucide-react'
+
+function getPasswordStrength(password: string): { score: number; label: string; color: string; textColor: string } {
+  let score = 0
+  if (password.length >= 8) score++
+  if (/[A-Z]/.test(password)) score++
+  if (/[a-z]/.test(password)) score++
+  if (/\d/.test(password)) score++
+  if (/[^A-Za-z0-9]/.test(password)) score = Math.min(4, score + 1)
+  const levels = [
+    { label: '', color: 'bg-bg-tertiary', textColor: '' },
+    { label: 'Weak', color: 'bg-red-500', textColor: 'text-red-500' },
+    { label: 'Fair', color: 'bg-orange-400', textColor: 'text-orange-500' },
+    { label: 'Good', color: 'bg-yellow-400', textColor: 'text-yellow-600' },
+    { label: 'Strong', color: 'bg-green-500', textColor: 'text-green-500' },
+  ]
+  return { score: Math.min(4, score), ...levels[Math.min(4, score)] }
+}
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -205,7 +222,7 @@ export default function RegisterPage() {
                     required
                     value={formData.phone}
                     onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-150 ease-in-out sm:text-sm"
+                    className="block w-full pl-10 pr-3 py-3 border border-border-color rounded-lg focus:ring-2 focus:ring-theme-primary focus:border-transparent transition duration-150 ease-in-out sm:text-sm bg-bg-primary text-text-primary placeholder:text-text-tertiary"
                     placeholder="+919876543210"
                   />
                 </div>
@@ -247,7 +264,45 @@ export default function RegisterPage() {
                     )}
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-text-tertiary">Must include uppercase, lowercase & digit</p>
+
+                {/* Password strength meter */}
+                {formData.password && (() => {
+                  const strength = getPasswordStrength(formData.password)
+                  const criteria = [
+                    { met: formData.password.length >= 8, label: 'At least 8 characters' },
+                    { met: /[A-Z]/.test(formData.password), label: 'Uppercase letter' },
+                    { met: /[a-z]/.test(formData.password), label: 'Lowercase letter' },
+                    { met: /\d/.test(formData.password), label: 'Number' },
+                  ]
+                  return (
+                    <div className="mt-3 space-y-2">
+                      {/* Bar */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-1 gap-1">
+                          {[1, 2, 3, 4].map((lvl) => (
+                            <div
+                              key={lvl}
+                              className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${strength.score >= lvl ? strength.color : 'bg-bg-tertiary'
+                                }`}
+                            />
+                          ))}
+                        </div>
+                        {strength.label && (
+                          <span className={`text-xs font-semibold ${strength.textColor}`}>{strength.label}</span>
+                        )}
+                      </div>
+                      {/* Criteria checklist */}
+                      <div className="grid grid-cols-2 gap-1">
+                        {criteria.map((c) => (
+                          <div key={c.label} className={`flex items-center gap-1.5 text-xs transition-colors ${c.met ? 'text-green-500' : 'text-text-tertiary'}`}>
+                            <CheckCircle className={`h-3.5 w-3.5 flex-shrink-0 ${c.met ? 'fill-green-500/20' : ''}`} />
+                            {c.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
 
               <div>
@@ -331,7 +386,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <p className="mt-8 text-center text-xs text-gray-500">
+          <p className="mt-8 text-center text-xs text-text-tertiary">
             By creating an account, you agree to our Terms of Service and Privacy Policy
           </p>
         </div>

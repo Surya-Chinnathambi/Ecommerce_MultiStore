@@ -5,11 +5,17 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
+from contextlib import contextmanager
 import logging
+import threading
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Round-robin counter for read replica selection (avoids random skew)
+_replica_counter = [0]
+_replica_lock = threading.Lock()
 
 # Create database engine with connection pooling
 engine = create_engine(
@@ -17,8 +23,13 @@ engine = create_engine(
     poolclass=QueuePool,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_pre_ping=True,  # Verify connections before using
-    echo=False,  # Set to True for SQL query logging
+    pool_pre_ping=True,          # Verify connections before using
+    pool_recycle=settings.DB_POOL_RECYCLE,   # Recycle to avoid stale / timed-out connections
+    pool_timeout=settings.DB_POOL_TIMEOUT,   # Raise if pool exhausted instead of hanging
+    connect_args={
+        "options": f"-c statement_timeout={settings.DB_STATEMENT_TIMEOUT_MS}",
+    },
+    echo=False,                  # Set to True for SQL query debugging
 )
 
 # Create read replica engines if configured
@@ -56,15 +67,39 @@ def get_db():
         db.close()
 
 
+@contextmanager
+def get_db_session():
+    """
+    Sync context-manager for use in Celery tasks, scripts, and one-off jobs.
+    Commits on success, rolls back on any exception, always closes.
+
+    Usage::
+
+        with get_db_session() as db:
+            orders = db.query(Order).filter(...).all()
+    """
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 def get_read_db():
     """
-    Get read-only database session from replica
-    Falls back to primary if no replicas configured
+    Get a read-only database session from a replica.
+    Falls back to primary if no replicas are configured.
+    Uses strict round-robin (not random) for even load distribution.
     """
     if read_engines:
-        # Simple round-robin selection
-        import random
-        read_engine = random.choice(read_engines)
+        with _replica_lock:
+            idx = _replica_counter[0] % len(read_engines)
+            _replica_counter[0] = (_replica_counter[0] + 1) % (len(read_engines) * 10_000)
+        read_engine = read_engines[idx]
         ReadSession = sessionmaker(autocommit=False, autoflush=False, bind=read_engine)
         db = ReadSession()
     else:

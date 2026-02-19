@@ -1,0 +1,84 @@
+[tool.black]
+line-length = 127
+target-version = ["py311"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  | alembic/versions
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 127
+known_first_party = ["app"]
+known_third_party = ["fastapi", "sqlalchemy", "pydantic", "redis", "celery", "jose", "passlib"]
+skip_glob = ["alembic/versions/*"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_return_any = false
+disallow_untyped_defs = false
+# Noisy third-party stubs — silence per-module
+[[tool.mypy.overrides]]
+module = [
+    "razorpay.*",
+    "stripe.*",
+    "sendgrid.*",
+    "twilio.*",
+    "passlib.*",
+    "jose.*",
+    "celery.*",
+    "kombu.*",
+    "slugify.*",
+    "magic.*",
+    "emails.*",
+    "phonenumbers.*",
+    "pythonjsonlogger.*",
+    "hiredis.*",
+    "sentry_sdk.*",
+    "prometheus_client.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "-ra",
+    "--tb=short",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests requiring live DB/Redis",
+    "unit: marks pure unit tests with no external deps",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:sqlalchemy.*",
+    "ignore::DeprecationWarning:passlib.*",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "app/alembic/*",
+    "*/tests/*",
+    "*__init__*",
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+skip_empty = true

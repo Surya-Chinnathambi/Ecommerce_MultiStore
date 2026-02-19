@@ -28,7 +28,7 @@ from app.services.payment_service import payment_service
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/payments", tags=["Payments"])
+router = APIRouter(tags=["Payments"])
 
 
 @router.post("/intent", response_model=PaymentIntentResponse, status_code=status.HTTP_201_CREATED)

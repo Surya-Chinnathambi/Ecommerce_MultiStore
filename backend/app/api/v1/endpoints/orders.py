@@ -14,6 +14,7 @@ from app.core.security import get_current_user
 from app.models.auth_models import User
 from app.models.models import Order, OrderItem, Product, Store
 from app.schemas.schemas import APIResponse, OrderResponse
+from app.services.websocket_manager import notify_order_update
 
 router = APIRouter()
 
@@ -40,6 +41,14 @@ async def get_admin_orders(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only store admins can access this endpoint"
         )
+
+    # Store admins must only access their own store
+    if current_user.role.value.upper() != 'SUPER_ADMIN':
+        if not current_user.store_id or str(current_user.store_id) != str(store_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only access orders for your own store"
+            )
     
     # Verify store exists
     store = db.query(Store).filter(Store.id == store_id).first()
@@ -126,6 +135,14 @@ async def get_order_stats(
     """Get order statistics for admin dashboard"""
     if current_user.role.value.upper() not in ['ADMIN', 'SUPER_ADMIN']:
         raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Store admins must only access their own store
+    if current_user.role.value.upper() != 'SUPER_ADMIN':
+        if not current_user.store_id or str(current_user.store_id) != str(store_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only access stats for your own store"
+            )
     
     # Get order counts by status
     status_counts = db.query(
@@ -195,8 +212,8 @@ async def get_customer_orders(
         order_dict = {
             "id": order.id,
             "order_number": order.order_number,
-            "order_status": order.order_status,
-            "payment_status": order.payment_status,
+            "order_status": order.order_status.value if hasattr(order.order_status, "value") else order.order_status,
+            "payment_status": order.payment_status.value if hasattr(order.payment_status, "value") else order.payment_status,
             "payment_method": order.payment_method,
             "subtotal": float(order.subtotal),
             "tax_amount": float(order.tax_amount),
@@ -212,16 +229,16 @@ async def get_customer_orders(
                     "total": float(item.total),
                     "product": {
                         "id": item.product.id if item.product else None,
-                        "image_url": item.product.image_url if item.product else None
+                        "image_url": (item.product.images[0] if item.product and getattr(item.product, "images", None) else None)
                     } if item.product else None
                 }
                 for item in order.items
             ],
             "shipping_address": {
-                "address": order.shipping_address,
-                "city": order.shipping_city,
-                "state": order.shipping_state,
-                "postal_code": order.shipping_postal_code
+                "address": order.delivery_address,
+                "city": order.delivery_city,
+                "state": order.delivery_state,
+                "postal_code": order.delivery_pincode
             }
         }
         orders_data.append(order_dict)
@@ -260,6 +277,14 @@ async def update_order_status(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # Store admins must only update orders within their own store.
+    if current_user.role.value.upper() != 'SUPER_ADMIN':
+        if not current_user.store_id or str(order.store_id) != str(current_user.store_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only update orders for your own store"
+            )
     
     old_status = order.order_status
     order.order_status = order_status
@@ -267,6 +292,18 @@ async def update_order_status(
     
     db.commit()
     db.refresh(order)
+
+    # Push live update to store admin WebSocket channel
+    try:
+        await notify_order_update(
+            store_id=str(order.store_id),
+            order_id=str(order.id),
+            order_number=order.order_number,
+            status=order_status,
+            customer_name=order.customer_name or ""
+        )
+    except Exception:
+        pass  # Non-critical — don't fail the request if WS push fails
     
     return APIResponse(
         success=True,

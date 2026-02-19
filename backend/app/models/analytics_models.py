@@ -117,7 +117,31 @@ class InventoryAlert(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
+
+class UserProductView(Base):
+    """Tracks which products a user has viewed (for recommendations & recently-viewed)."""
+    __tablename__ = "user_product_views"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    session_id = Column(String(128), nullable=True, index=True)   # anonymous visitors
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    store_id = Column(UUID(as_uuid=True), ForeignKey("stores.id", ondelete="CASCADE"), nullable=False, index=True)
+    view_count = Column(Integer, default=1)
+    last_viewed_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+    product = relationship("Product")
+    store = relationship("Store")
+
+    __table_args__ = (
+        Index("idx_upv_user_store", "user_id", "store_id"),
+        Index("idx_upv_session_store", "session_id", "store_id"),
+        Index("idx_upv_product_store", "product_id", "store_id"),
+    )
+
     # Relationships
     product = relationship("Product")
     store = relationship("Store")

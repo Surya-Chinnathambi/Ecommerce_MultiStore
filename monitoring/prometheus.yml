@@ -1,0 +1,44 @@
+global:
+  scrape_interval: 15s       # How often to scrape targets
+  evaluation_interval: 15s   # How often to evaluate alerting rules
+  external_labels:
+    environment: development
+    platform: ecommerce
+
+# Alertmanager configuration (uncomment and configure for production)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+# Load alerting rule files
+rule_files:
+  - "rules/*.yml"
+
+scrape_configs:
+  # FastAPI backend — exposes /metrics via prometheus_client
+  - job_name: fastapi_backend
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Prometheus itself
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Redis Exporter (uncomment if you add oliver006/redis_exporter)
+  # - job_name: redis
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+
+  # Postgres Exporter (uncomment if you add wrouesnel/postgres_exporter)
+  # - job_name: postgres
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+
+  # Node Exporter — host-level CPU/memory/disk
+  # - job_name: node
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']

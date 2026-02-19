@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { orderApi } from '@/lib/api'
 import PaymentGateway from '@/components/payment/PaymentGateway'
 import { toast } from '@/components/ui/Toaster'
@@ -7,7 +7,6 @@ import { ArrowLeft } from 'lucide-react'
 
 export default function PaymentPage() {
     const { orderNumber } = useParams<{ orderNumber: string }>()
-    const [searchParams] = useSearchParams()
     const navigate = useNavigate()
     const [order, setOrder] = useState<any>(null)
     const [loading, setLoading] = useState(true)
@@ -46,7 +45,7 @@ export default function PaymentPage() {
         }
     }
 
-    const handlePaymentSuccess = (paymentId: string) => {
+    const handlePaymentSuccess = () => {
         toast.success('Payment successful!')
         navigate(`/order-success/${orderNumber}`)
     }

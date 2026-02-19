@@ -21,7 +21,7 @@ from app.models.payment_models import (
     PaymentStatus,
     RefundStatus
 )
-from app.models.models import Order, OrderStatus
+from app.models.models import Order, OrderStatus, PaymentStatus as OrderPaymentStatus
 from app.schemas.payment_schemas import (
     PaymentIntentCreate,
     PaymentResponse,
@@ -105,7 +105,7 @@ class PaymentService:
         }
         
         # Handle different payment gateways
-        if payment_data.payment_gateway == PaymentGateway.STRIPE:
+        if payment.payment_gateway == PaymentGateway.STRIPE:
             # Create Stripe PaymentIntent
             try:
                 intent = stripe.PaymentIntent.create(
@@ -131,7 +131,7 @@ class PaymentService:
                 db.commit()
                 raise ValueError(f"Stripe error: {str(e)}")
         
-        elif payment_data.payment_gateway == PaymentGateway.RAZORPAY:
+        elif payment.payment_gateway == PaymentGateway.RAZORPAY:
             # Create Razorpay Order
             if not self.razorpay_client:
                 raise ValueError("Razorpay is not configured")
@@ -160,7 +160,7 @@ class PaymentService:
                 db.commit()
                 raise ValueError(f"Razorpay error: {str(e)}")
         
-        elif payment_data.payment_gateway == PaymentGateway.COD:
+        elif payment.payment_gateway == PaymentGateway.COD:
             # Cash on Delivery - no gateway processing needed
             payment.status = PaymentStatus.PENDING
             payment.gateway_payment_id = f"COD-{order.order_number}"
@@ -204,7 +204,7 @@ class PaymentService:
                     
                     # Update order status
                     order = payment.order
-                    order.payment_status = payment.status.value
+                    order.payment_status = OrderPaymentStatus.PAID
                     order.order_status = OrderStatus.CONFIRMED
                     
                 else:
@@ -255,7 +255,7 @@ class PaymentService:
                     
                     # Update order status
                     order = payment.order
-                    order.payment_status = payment.status.value
+                    order.payment_status = OrderPaymentStatus.PAID
                     order.order_status = OrderStatus.CONFIRMED
                     
                 else:
@@ -276,7 +276,7 @@ class PaymentService:
             
             # Update order status
             order = payment.order
-            order.payment_status = "cod"
+            order.payment_status = OrderPaymentStatus.COD
             order.order_status = OrderStatus.CONFIRMED
         
         db.commit()

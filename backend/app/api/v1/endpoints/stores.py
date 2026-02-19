@@ -2,17 +2,19 @@
 Store Management API Endpoints
 For admin/store owner dashboard
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any, Dict
 from uuid import UUID
 import logging
 
 from app.core.database import get_db, get_read_db
+from app.core.security import get_current_user
 from app.schemas.schemas import StoreResponse, APIResponse
 from app.models.models import Store, Product, Order, OrderStatus
+from app.models.auth_models import User
 
 logger = logging.getLogger(__name__)
 
@@ -47,17 +49,26 @@ async def list_stores(db: Session = Depends(get_read_db)):
 async def get_dashboard_stats(
     request: Request,
     days: int = 7,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_read_db)
 ):
     """
-    Get dashboard statistics
+    Get dashboard statistics (admin only)
     
     - Total orders, revenue
     - Product counts
     - Low stock alerts
     - Recent activity
     """
+    if current_user.role.value.upper() not in ('ADMIN', 'SUPER_ADMIN'):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     store_id = UUID(request.state.store_id)
+
+    # Store admin ownership check
+    if current_user.role.value.upper() != 'SUPER_ADMIN':
+        if not current_user.store_id or str(current_user.store_id) != str(store_id):
+            raise HTTPException(status_code=403, detail="You can only view stats for your own store")
     
     # Date range
     start_date = datetime.utcnow() - timedelta(days=days)
@@ -201,3 +212,52 @@ async def get_recent_orders(
         ],
         meta={"total": len(orders)}
     )
+
+
+_UPDATABLE_STORE_FIELDS = {
+    "name", "logo_url", "city", "state", "address", "pincode",
+    "owner_name", "owner_phone", "owner_email",
+    "primary_color", "secondary_color",
+}
+
+
+@router.patch("/me", response_model=APIResponse)
+async def update_store_settings(
+    request: Request,
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update store branding / contact info (admin only)."""
+    if current_user.role.value.upper() not in ("ADMIN", "SUPER_ADMIN"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+
+    store_id = request.state.store_id
+    store = db.query(Store).filter(Store.id == store_id).first()
+    if not store:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+    for key, value in payload.items():
+        if key in _UPDATABLE_STORE_FIELDS:
+            setattr(store, key, value)
+        elif key == "settings" and isinstance(value, dict):
+            merged = {**(store.settings or {}), **value}
+            store.settings = merged
+
+    store.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(store)
+
+    return APIResponse(success=True, data={
+        "id": str(store.id),
+        "name": store.name,
+        "logo_url": store.logo_url,
+        "city": store.city,
+        "state": store.state,
+        "address": store.address,
+        "owner_name": store.owner_name,
+        "owner_phone": store.owner_phone,
+        "owner_email": store.owner_email,
+        "primary_color": store.primary_color,
+        "secondary_color": store.secondary_color,
+    })

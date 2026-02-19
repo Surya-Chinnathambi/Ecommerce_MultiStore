@@ -1,0 +1,347 @@
+﻿name: CI/CD Pipeline
+
+# Triggers:
+#   • Every push to main / staging / develop
+#   • Every PR targeting main or staging
+on:
+  push:
+    branches: [main, staging, develop]
+  pull_request:
+    branches: [main, staging]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BASE: ${{ github.repository }}
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "18"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# JOB 1 — Backend lint (fast feedback, no DB needed)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+jobs:
+  lint-backend:
+    name: Lint Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install dev dependencies
+        run: pip install -r backend/requirements-dev.txt
+      - name: flake8 (fatal errors)
+        run: cd backend && flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: flake8 (style — non-blocking)
+        run: cd backend && flake8 app --count --exit-zero --max-complexity=12 --max-line-length=127 --statistics
+      - name: black (format check)
+        run: cd backend && black --check --diff app
+      - name: isort (import order)
+        run: cd backend && isort --check-only --diff app
+      - name: mypy (advisory)
+        run: cd backend && mypy app --ignore-missing-imports --no-error-summary
+        continue-on-error: true
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# JOB 2 — Backend tests
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    needs: lint-backend
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_ecommerce
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+      - name: Run Alembic migrations
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_ecommerce
+          SECRET_KEY: ci-test-secret-key-not-used-in-prod
+        run: cd backend && alembic upgrade head
+      - name: Run pytest
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_ecommerce
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: ci-test-secret-key-not-used-in-prod
+          ENVIRONMENT: testing
+          CACHE_ENABLED: "false"
+          DB_POOL_RECYCLE: "300"
+          DB_POOL_TIMEOUT: "10"
+          DB_STATEMENT_TIMEOUT_MS: "5000"
+          LOG_LEVEL: WARNING
+        run: |
+          cd backend
+          pytest tests/ -v --cov=app --cov-report=xml:coverage.xml --cov-report=term-missing --tb=short -q
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: backend/coverage.xml
+          flags: backend
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          retention-days: 7
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# JOB 3 — Frontend lint + type-check + build
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/storefront/package-lock.json
+      - name: Install dependencies
+        run: cd frontend/storefront && npm ci
+      - name: Type check
+        run: cd frontend/storefront && npm run type-check
+      - name: Lint
+        run: cd frontend/storefront && npm run lint
+      - name: Production build
+        run: cd frontend/storefront && npm run build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/storefront/dist/
+          retention-days: 3
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# JOB 4 — Security scanning (parallel with tests)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bandit (Python SAST)
+        run: |
+          pip install bandit[toml]
+          bandit -r backend/app -ll -ii --exclude backend/app/tests -f json -o bandit-report.json || true
+          bandit -r backend/app -ll -ii --exclude backend/app/tests
+      - name: pip-audit (dependency CVEs)
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/requirements.txt --format json --output pip-audit-report.json || true
+          pip-audit -r backend/requirements.txt
+      - name: Trivy (filesystem scan)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+          format: sarif
+          output: trivy-results.sarif
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            pip-audit-report.json
+          retention-days: 14
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# JOB 5 — Build & push Docker images (push events only)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  build:
+    name: Build & Push — ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend, security-scan]
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+          - image: storefront
+            context: ./frontend/storefront
+            dockerfile: ./frontend/storefront/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Derive image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=${{ github.ref_name }}-,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          dockerfile: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+          build-args: |
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# JOB 6 — Deploy to Staging
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  deploy-staging:
+    name: Deploy — Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/staging'
+    environment:
+      name: staging
+      url: https://staging.yourdomain.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          known_hosts: ${{ secrets.STAGING_KNOWN_HOSTS }}
+      - name: Set image tag
+        run: echo "IMAGE_TAG=staging-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+      - name: Pull new images
+        run: |
+          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_HOST }} \
+            "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-backend:${{ env.IMAGE_TAG }} && \
+             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-storefront:${{ env.IMAGE_TAG }}"
+      - name: Rolling restart
+        run: |
+          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_HOST }} << 'EOF'
+            cd /opt/ecommerce
+            sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-backend:${{ env.IMAGE_TAG }}|" .env
+            sed -i "s|^STOREFRONT_IMAGE=.*|STOREFRONT_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-storefront:${{ env.IMAGE_TAG }}|" .env
+            docker compose up -d --no-deps --wait backend celery_worker celery_beat storefront
+          EOF
+      - name: Smoke test
+        run: sleep 10 && curl --fail --max-time 15 https://staging.yourdomain.com/health
+      - name: Notify Slack — success
+        if: success()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: '{"text":":white_check_mark: *Staging deployed* — `${{ env.IMAGE_TAG }}` by ${{ github.actor }}"}'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Notify Slack — failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: '{"text":":x: *Staging deploy FAILED* — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"}'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# JOB 7 — Deploy to Production (requires manual approval)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  deploy-production:
+    name: Deploy — Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    # Configure required reviewers: Settings → Environments → production
+    environment:
+      name: production
+      url: https://yourdomain.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.PROD_SSH_KEY }}
+          known_hosts: ${{ secrets.PROD_KNOWN_HOSTS }}
+      - name: Set image tag
+        run: echo "IMAGE_TAG=main-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+      - name: Pull new images
+        run: |
+          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_HOST }} \
+            "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-backend:${{ env.IMAGE_TAG }} && \
+             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-storefront:${{ env.IMAGE_TAG }}"
+      - name: Run DB migrations
+        run: |
+          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_HOST }} \
+            "docker run --rm --network ecommerce_default --env-file /opt/ecommerce/.env \
+             ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-backend:${{ env.IMAGE_TAG }} alembic upgrade head"
+      - name: Zero-downtime rolling restart
+        run: |
+          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_HOST }} << 'EOF'
+            cd /opt/ecommerce
+            sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-backend:${{ env.IMAGE_TAG }}|" .env
+            sed -i "s|^STOREFRONT_IMAGE=.*|STOREFRONT_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-storefront:${{ env.IMAGE_TAG }}|" .env
+            docker compose up -d --no-deps --wait --scale backend=2 backend
+            docker compose up -d --no-deps --wait --scale backend=1 backend
+            docker compose up -d --no-deps --wait celery_worker celery_beat storefront
+            docker image prune -f --filter "until=24h"
+          EOF
+      - name: Smoke test
+        run: sleep 15 && curl --fail --max-time 20 https://yourdomain.com/health
+      - name: Notify Slack — success
+        if: success()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: '{"text":":rocket: *Production deployed* — `${{ env.IMAGE_TAG }}` by ${{ github.actor }}"}'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Notify Slack — failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: '{"text":":fire: *Production deploy FAILED* — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"}'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

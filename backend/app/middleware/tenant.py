@@ -183,7 +183,6 @@ class TenantMiddleware(BaseHTTPMiddleware):
             "/api/v1/auth/",
             "/api/v1/admin/",
             "/api/v1/products",
-            "/api/v1/orders",
             "/api/v1/stores",
             "/api/v1/storefront/",
             "/health",

@@ -63,7 +63,7 @@ async def create_review(
             Order.id == review_data.order_id,
             Order.user_id == current_user.id,
             OrderItem.product_id == review_data.product_id,
-            Order.status.in_(["delivered", "confirmed"])
+            Order.order_status.in_(["delivered", "confirmed"])
         ).first()
         is_verified = order is not None
     

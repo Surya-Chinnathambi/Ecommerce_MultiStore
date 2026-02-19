@@ -60,9 +60,12 @@ dist/
 dist-ssr/
 *.local
 
-# Environment variables
+# Environment variables — only .env.example is safe to commit
 .env
 .env.local
+.env.development
+.env.production
+.env.staging
 .env.development.local
 .env.test.local
 .env.production.local

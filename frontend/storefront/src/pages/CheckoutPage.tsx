@@ -4,11 +4,11 @@ import { z } from 'zod'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { orderApi, authApi } from '@/lib/api'
+import { orderApi, authApi, couponsApi, pincodeApi } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
 import { toast } from '@/components/ui/Toaster'
-import { useEffect, useState } from 'react'
-import { MapPin } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { MapPin, Tag, X, Check, Loader2, Truck } from 'lucide-react'
 
 const checkoutSchema = z.object({
     customer_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -30,13 +30,71 @@ export default function CheckoutPage() {
     const { items, getTotalPrice, clearCart } = useCartStore()
     const { user, isAuthenticated } = useAuthStore()
     const [showAddresses, setShowAddresses] = useState(false)
+    const [couponCode, setCouponCode] = useState('')
+    const [couponData, setCouponData] = useState<any>(null)
+    const [couponLoading, setCouponLoading] = useState(false)
+    const [pincodeInfo, setPincodeInfo] = useState<{ serviceable: boolean; standard_days?: number; city?: string; state?: string } | null>(null)
+    const [pincodeLoading, setPincodeLoading] = useState(false)
+    const pincodeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    const { register, handleSubmit, formState: { errors }, setValue } = useForm<CheckoutForm>({
+    const subtotal = getTotalPrice()
+    const discount = couponData?.discount_amount ?? 0
+    const freeShipping = couponData?.free_shipping ?? false
+    const finalTotal = Math.max(subtotal - discount, 0)
+
+    const applyCoupon = async () => {
+        if (!couponCode.trim()) return
+        setCouponLoading(true)
+        try {
+            const res = await couponsApi.validate({
+                code: couponCode.trim(),
+                order_amount: subtotal,
+                item_count: items.length,
+            })
+            setCouponData(res.data.data)
+            toast.success(`Coupon applied! You save ₹${res.data.data.discount_amount.toFixed(2)}`)
+        } catch (e: any) {
+            toast.error(e.response?.data?.detail || 'Invalid coupon code')
+            setCouponData(null)
+        } finally {
+            setCouponLoading(false)
+        }
+    }
+
+    const removeCoupon = () => {
+        setCouponData(null)
+        setCouponCode('')
+    }
+
+    const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<CheckoutForm>({
         resolver: zodResolver(checkoutSchema),
         defaultValues: {
             payment_method: 'COD',
         },
     })
+
+    // Pincode autofill
+    const watchedPincode = watch('delivery_pincode', '')
+    useEffect(() => {
+        const raw = (watchedPincode ?? '').replace(/\D/g, '')
+        if (raw.length !== 6) { setPincodeInfo(null); return }
+        if (pincodeDebounce.current) clearTimeout(pincodeDebounce.current)
+        pincodeDebounce.current = setTimeout(async () => {
+            setPincodeLoading(true)
+            try {
+                const res = await pincodeApi.check(raw)
+                const info = res.data?.data ?? res.data
+                setPincodeInfo(info)
+                if (info?.city) setValue('delivery_city', info.city)
+                if (info?.state) setValue('delivery_state', info.state)
+            } catch {
+                setPincodeInfo({ serviceable: false })
+            } finally {
+                setPincodeLoading(false)
+            }
+        }, 400)
+        return () => { if (pincodeDebounce.current) clearTimeout(pincodeDebounce.current) }
+    }, [watchedPincode, setValue])
 
     // Fetch saved addresses if user is logged in
     const { data: addressesData } = useQuery({
@@ -99,6 +157,8 @@ export default function CheckoutPage() {
                 product_id: item.product_id,
                 quantity: item.quantity,
             })),
+            coupon_code: couponData?.code,
+            coupon_id: couponData?.coupon_id,
         }
         createOrderMutation.mutate(orderData)
     }
@@ -121,21 +181,54 @@ export default function CheckoutPage() {
         return null
     }
 
+    const watchPayment = 'payment_method'
+    const STEPS = [
+        { id: 1, label: 'Delivery Details', icon: '📍' },
+        { id: 2, label: 'Payment Method', icon: '💳' },
+        { id: 3, label: 'Review & Place', icon: '✅' },
+    ]
+
     return (
         <div className="container mx-auto px-4 py-8">
-            <h1 className="text-3xl font-bold mb-8">Checkout</h1>
+            <h1 className="text-3xl font-bold mb-6 text-text-primary">Checkout</h1>
+
+            {/* ── Progress stepper ── */}
+            <div className="card mb-8 py-4">
+                <div className="flex items-center">
+                    {STEPS.map((step, i) => (
+                        <div key={step.id} className="flex items-center flex-1">
+                            <div className="flex flex-col items-center gap-1 flex-none">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold transition-all ${step.id <= 2
+                                        ? 'bg-theme-primary text-white shadow-md shadow-theme-primary/30'
+                                        : 'bg-bg-tertiary text-text-tertiary'
+                                    }`}>
+                                    {step.icon}
+                                </div>
+                                <span className={`text-xs font-medium text-center leading-tight hidden sm:block ${step.id <= 2 ? 'text-theme-primary' : 'text-text-tertiary'
+                                    }`}>
+                                    {step.label}
+                                </span>
+                            </div>
+                            {i < STEPS.length - 1 && (
+                                <div className={`flex-1 h-0.5 mx-2 rounded-full ${step.id < 2 ? 'bg-theme-primary' : 'bg-bg-tertiary'
+                                    }`} />
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="grid lg:grid-cols-3 gap-8">
                 {/* Delivery Details */}
                 <div className="lg:col-span-2 space-y-6">
                     <div className="card">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold">Delivery Details</h2>
+                            <h2 className="text-xl font-bold text-text-primary">Delivery Details</h2>
                             {isAuthenticated && addresses.length > 0 && (
                                 <button
                                     type="button"
                                     onClick={() => setShowAddresses(!showAddresses)}
-                                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    className="text-sm text-theme-primary hover:text-theme-primary-hover font-medium"
                                 >
                                     {showAddresses ? 'Hide Addresses' : 'Choose Saved Address'}
                                 </button>
@@ -226,9 +319,28 @@ export default function CheckoutPage() {
 
                             <div>
                                 <label className="block text-sm font-medium mb-1">Pincode *</label>
-                                <input {...register('delivery_pincode')} placeholder="400001" className="input" />
+                                <div className="relative">
+                                    <input {...register('delivery_pincode')} placeholder="400001" className="input pr-9" maxLength={6} />
+                                    {pincodeLoading && (
+                                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-text-tertiary" />
+                                    )}
+                                    {!pincodeLoading && pincodeInfo && (
+                                        pincodeInfo.serviceable
+                                            ? <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                                            : <X className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                                    )}
+                                </div>
                                 {errors.delivery_pincode && (
                                     <p className="text-red-600 text-sm mt-1">{errors.delivery_pincode.message}</p>
+                                )}
+                                {pincodeInfo?.serviceable && pincodeInfo.standard_days != null && (
+                                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                        <Truck className="h-3 w-3" />
+                                        Delivery available · Est. {pincodeInfo.standard_days} day{pincodeInfo.standard_days !== 1 ? 's' : ''}
+                                    </p>
+                                )}
+                                {pincodeInfo && !pincodeInfo.serviceable && (
+                                    <p className="text-xs text-red-600 mt-1">Delivery not available to this pincode</p>
                                 )}
                             </div>
 
@@ -246,7 +358,7 @@ export default function CheckoutPage() {
 
                     {/* Payment Method */}
                     <div className="card">
-                        <h2 className="text-xl font-bold mb-4">Payment Method</h2>
+                        <h2 className="text-xl font-bold mb-4 text-text-primary">Payment Method</h2>
 
                         <div className="space-y-3">
                             <label className="flex items-center space-x-3 p-4 border border-border-color rounded-lg cursor-pointer hover:bg-bg-tertiary">
@@ -271,7 +383,7 @@ export default function CheckoutPage() {
                 {/* Order Summary */}
                 <div className="lg:col-span-1">
                     <div className="card sticky top-24">
-                        <h2 className="text-xl font-bold mb-4">Order Summary</h2>
+                        <h2 className="text-xl font-bold mb-4 text-text-primary">Order Summary</h2>
 
                         <div className="space-y-3 mb-4">
                             {items.map(item => (
@@ -285,19 +397,71 @@ export default function CheckoutPage() {
                         <div className="border-t border-border-color pt-4 space-y-2 mb-4">
                             <div className="flex justify-between">
                                 <span className="text-text-secondary">Subtotal</span>
-                                <span className="font-medium text-text-primary">₹{getTotalPrice().toFixed(2)}</span>
+                                <span className="font-medium text-text-primary">₹{subtotal.toFixed(2)}</span>
                             </div>
+                            {discount > 0 && (
+                                <div className="flex justify-between text-green-600 dark:text-green-400">
+                                    <span>Coupon ({couponData?.code})</span>
+                                    <span className="font-medium">-₹{discount.toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between">
                                 <span className="text-text-secondary">Delivery</span>
-                                <span className="font-medium text-text-primary">FREE</span>
+                                <span className={`font-medium ${freeShipping ? 'text-green-600' : 'text-text-primary'}`}>
+                                    {freeShipping ? 'FREE (Coupon)' : 'FREE'}
+                                </span>
                             </div>
                         </div>
 
-                        <div className="border-t pt-4 mb-6">
+                        {/* Coupon Input */}
+                        <div className="mb-4">
+                            {couponData ? (
+                                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                                    <div className="flex items-center gap-2">
+                                        <Check className="h-4 w-4 text-green-600" />
+                                        <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                                            {couponData.code} applied
+                                        </span>
+                                    </div>
+                                    <button aria-label="Remove coupon" onClick={removeCoupon} className="text-text-tertiary hover:text-red-500">
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
+                                        <input
+                                            type="text"
+                                            value={couponCode}
+                                            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                            onKeyDown={(e) => e.key === 'Enter' && applyCoupon()}
+                                            placeholder="Coupon code"
+                                            className="input pl-9 text-sm"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={applyCoupon}
+                                        disabled={couponLoading || !couponCode}
+                                        className="btn btn-outline btn-sm px-4 whitespace-nowrap"
+                                    >
+                                        {couponLoading ? '...' : 'Apply'}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="border-t border-border-color pt-4 mb-6">
                             <div className="flex justify-between text-lg font-bold">
-                                <span>Total</span>
-                                <span>₹{getTotalPrice().toFixed(2)}</span>
+                                <span className="text-text-primary">Total</span>
+                                <span className="text-text-primary">₹{finalTotal.toFixed(2)}</span>
                             </div>
+                            {discount > 0 && (
+                                <p className="text-xs text-green-600 dark:text-green-400 text-right mt-1">
+                                    You save ₹{discount.toFixed(2)} with coupon
+                                </p>
+                            )}
                         </div>
 
                         <button
@@ -309,9 +473,9 @@ export default function CheckoutPage() {
                         </button>
 
                         {!isAuthenticated && (
-                            <p className="text-sm text-gray-600 mt-4 text-center">
+                            <p className="text-sm text-text-secondary mt-4 text-center">
                                 Want to save your addresses?{' '}
-                                <a href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+                                <a href="/login" className="text-theme-primary hover:text-theme-primary-hover font-medium">
                                     Login
                                 </a>
                             </p>

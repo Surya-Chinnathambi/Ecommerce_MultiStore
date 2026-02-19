@@ -88,7 +88,7 @@ class Payment(Base):
     error_code = Column(String(50))  # Error code from gateway
     
     # Metadata
-    meta_data = Column(JSONB, default={})  # Additional custom data
+    meta_data = Column("metadata", JSONB, default={})  # Additional custom data
     notes = Column(Text)  # Internal notes
     
     # Timestamps
@@ -143,7 +143,7 @@ class Refund(Base):
     error_code = Column(String(50))
     
     # Metadata
-    meta_data = Column(JSONB, default={})  # Additional custom data
+    meta_data = Column("metadata", JSONB, default={})  # Additional custom data
     notes = Column(Text)  # Internal notes
     
     # Timestamps

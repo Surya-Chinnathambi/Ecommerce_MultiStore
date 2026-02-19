@@ -60,9 +60,16 @@ class UserResponse(BaseModel):
 # Token Response
 class Token(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
-    expires_in: int
+    expires_in: int          # access token TTL in seconds
+    refresh_expires_in: int  # refresh token TTL in seconds
     user: UserResponse
+
+
+# Refresh Token Request
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
 
 
 # Change Password
@@ -179,3 +186,39 @@ class PasswordResetConfirm(BaseModel):
         if not re.search(r'\d', v):
             raise ValueError('Password must contain at least one digit')
         return v
+
+
+# ── API Key Schemas ───────────────────────────────────────────────────────────
+
+class APIKeyCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100, description="Human-readable label")
+    scopes: list[str] = Field(
+        default=["products:read", "orders:read", "inventory:read"],
+        description="Granted permission scopes",
+    )
+    is_test: bool = Field(default=False, description="Test key (sandbox use only)")
+    store_id: Optional[UUID] = Field(None, description="Restrict key to a specific store")
+    expires_days: Optional[int] = Field(None, ge=1, le=3650, description="Days until expiry; None = never")
+
+
+class APIKeyResponse(BaseModel):
+    id: UUID
+    name: str
+    key_prefix: str
+    scopes: list[str]
+    is_test: bool
+    is_active: bool
+    store_id: Optional[UUID]
+    user_id: Optional[UUID]
+    last_used_at: Optional[datetime]
+    request_count: int
+    expires_at: Optional[datetime]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class APIKeyCreatedResponse(APIKeyResponse):
+    """Returned ONCE on creation — includes the raw key (never stored)."""
+    raw_key: str

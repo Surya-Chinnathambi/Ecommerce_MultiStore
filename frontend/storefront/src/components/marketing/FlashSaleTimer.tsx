@@ -76,7 +76,7 @@ export default function FlashSaleTimer() {
     }
 
     return (
-        <div className="py-12 bg-gradient-to-r from-red-50 to-pink-50">
+        <div className="py-12 bg-gradient-to-r from-red-500/10 to-pink-500/10">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="flex items-center justify-center gap-3 mb-8">
                     <Flame className="w-8 h-8 text-red-500 animate-pulse" />
@@ -96,7 +96,7 @@ export default function FlashSaleTimer() {
                             <Link
                                 key={sale.id}
                                 to={`/products/${sale.product_id}`}
-                                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
+                                className="bg-bg-primary rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-border-color"
                             >
                                 {/* Product Image */}
                                 <div className="relative">
@@ -112,7 +112,7 @@ export default function FlashSaleTimer() {
 
                                 {/* Product Info */}
                                 <div className="p-4">
-                                    <h3 className="font-semibold text-lg mb-2 line-clamp-2">
+                                    <h3 className="font-semibold text-lg mb-2 line-clamp-2 text-text-primary">
                                         {sale.product.name}
                                     </h3>
 
@@ -121,36 +121,36 @@ export default function FlashSaleTimer() {
                                         <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                                             ₹{sale.sale_price.toFixed(2)}
                                         </span>
-                                        <span className="text-gray-400 line-through">
+                                        <span className="text-text-tertiary line-through">
                                             ₹{sale.product.price.toFixed(2)}
                                         </span>
                                     </div>
 
                                     {/* Stock Progress */}
                                     <div className="mb-3">
-                                        <div className="flex justify-between text-sm text-gray-600 mb-1">
+                                        <div className="flex justify-between text-sm text-text-secondary mb-1">
                                             <span>Sold: {sale.sold_quantity}/{sale.max_quantity}</span>
                                             <span>{soldPercentage.toFixed(0)}%</span>
                                         </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                            <div
-                                                className={`bg-gradient-to-r from-theme-primary to-theme-accent h-full rounded-full transition-all duration-300`}
-                                                style={{ width: `${Math.min(100, soldPercentage)}%` }}
-                                            />
-                                        </div>
+                                        <progress
+                                            className="flash-sale-progress w-full h-2"
+                                            value={Math.min(100, soldPercentage)}
+                                            max={100}
+                                            aria-label="Sale stock progress"
+                                        />
                                     </div>
 
                                     {/* Countdown Timer */}
-                                    <div className={`flex items-center gap-2 p-3 rounded-lg ${isUrgent ? 'bg-red-50' : 'bg-gray-50'
+                                    <div className={`flex items-center gap-2 p-3 rounded-lg ${isUrgent ? 'bg-red-500/10' : 'bg-bg-tertiary'
                                         }`}>
-                                        <Clock className={`w-5 h-5 ${isUrgent ? 'text-red-500' : 'text-gray-600'}`} />
+                                        <Clock className={`w-5 h-5 ${isUrgent ? 'text-red-500' : 'text-text-secondary'}`} />
                                         <div className="flex gap-2 text-sm font-semibold">
                                             {time.days > 0 && (
-                                                <div className={isUrgent ? 'text-red-600' : 'text-gray-800'}>
+                                                <div className={isUrgent ? 'text-red-600 dark:text-red-400' : 'text-text-primary'}>
                                                     {time.days}d
                                                 </div>
                                             )}
-                                            <div className={isUrgent ? 'text-red-600' : 'text-gray-800'}>
+                                            <div className={isUrgent ? 'text-red-600 dark:text-red-400' : 'text-text-primary'}>
                                                 {String(time.hours).padStart(2, '0')}:
                                                 {String(time.minutes).padStart(2, '0')}:
                                                 {String(time.seconds).padStart(2, '0')}

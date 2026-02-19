@@ -160,10 +160,27 @@ interface StripePaymentProps {
 }
 
 const StripePayment: React.FC<StripePaymentProps> = (props) => {
-    // Initialize Stripe with a default key (will be updated from backend)
+    const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+    const isStripeConfigured =
+        typeof stripePublishableKey === 'string' &&
+        stripePublishableKey.trim().startsWith('pk_') &&
+        !stripePublishableKey.includes('your_publishable_key_here');
+
+    if (!isStripeConfigured) {
+        return (
+            <div className="card">
+                <h3 className="text-lg font-semibold text-text-primary mb-2">Stripe is not configured</h3>
+                <p className="text-sm text-text-secondary">
+                    Set <span className="font-mono">VITE_STRIPE_PUBLISHABLE_KEY</span> in
+                    <span className="font-mono"> frontend/storefront/.env.local</span>, then restart the dev server.
+                </p>
+            </div>
+        );
+    }
+
+    // Initialize Stripe once per session.
     if (!stripePromise) {
-        // You can set a default publishable key here or fetch it from backend
-        stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
+        stripePromise = loadStripe(stripePublishableKey);
     }
 
     return (

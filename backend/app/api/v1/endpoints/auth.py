@@ -1,25 +1,36 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, status
+﻿from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import List
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.core.security import (
     get_password_hash,
     verify_password,
     create_access_token,
+    create_refresh_token,
+    verify_refresh_token,
     get_current_user,
     get_current_customer,
     get_current_admin,
+    get_current_super_admin,
     generate_password_reset_token,
+    blacklist_token,
+    check_account_locked,
+    record_failed_login,
+    clear_failed_logins,
+    generate_api_key,
+    hash_api_key,
 )
-from app.models.auth_models import User, UserRole, Address
+from app.models.auth_models import User, UserRole, Address, APIKey
 from app.models.models import Store, Order
 from app.schemas.schemas import APIResponse, OrderResponse
 from app.schemas.auth_schemas import (
     UserRegister,
     UserLogin,
     Token,
+    RefreshTokenRequest,
     UserResponse,
     ChangePassword,
     UpdateProfile,
@@ -29,6 +40,9 @@ from app.schemas.auth_schemas import (
     AdminRegister,
     PasswordResetRequest,
     PasswordResetConfirm,
+    APIKeyCreate,
+    APIKeyResponse,
+    APIKeyCreatedResponse,
 )
 
 router = APIRouter()
@@ -68,25 +82,33 @@ def register_customer(user_data: UserRegister, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     
-    # Create access token
     access_token = create_access_token(
+        data={"sub": str(user.id), "role": user.role.value}
+    )
+    refresh_token, _ = create_refresh_token(
         data={"sub": str(user.id), "role": user.role.value}
     )
     
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
-        "expires_in": 604800,  # 7 days in seconds
-        "user": user
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "refresh_expires_in": 30 * 24 * 60 * 60,
+        "user": user,
     }
 
 
 @router.post("/login", response_model=Token)
-def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    """Login user"""
+async def login(credentials: UserLogin, db: Session = Depends(get_db)):
+    """Login user — enforces account lockout after repeated failures."""
+    # Check lockout BEFORE hitting the DB (prevents timing attacks)
+    await check_account_locked(credentials.email)
+
     user = db.query(User).filter(User.email == credentials.email).first()
     
     if not user or not verify_password(credentials.password, user.password_hash):
+        await record_failed_login(credentials.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -98,20 +120,25 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
             detail="Account is inactive. Please contact support.",
         )
     
-    # Update last login
+    # Successful login — clear failure counter and update last_login
+    await clear_failed_logins(credentials.email)
     user.last_login_at = datetime.utcnow()
     db.commit()
     
-    # Create access token
     access_token = create_access_token(
+        data={"sub": str(user.id), "role": user.role.value}
+    )
+    refresh_token, _ = create_refresh_token(
         data={"sub": str(user.id), "role": user.role.value}
     )
     
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
-        "expires_in": 604800,  # 7 days
-        "user": user
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "refresh_expires_in": 30 * 24 * 60 * 60,
+        "user": user,
     }
 
 
@@ -119,6 +146,68 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information"""
     return current_user
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Logout — blacklists the current access token in Redis.
+    The client should also discard the refresh token.
+    """
+    from app.core.security import decode_token
+    from datetime import timezone
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.removeprefix("Bearer ").strip()
+    if token:
+        payload = decode_token(token)
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti and exp:
+            expires_at = datetime.utcfromtimestamp(exp)
+            await blacklist_token(jti, expires_at)
+    return None
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_tokens(
+    body: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Refresh token rotation — invalidates old refresh token JTI, issues a new pair.
+    """
+    from app.core.security import verify_refresh_token, decode_token
+    from datetime import timezone
+    payload = verify_refresh_token(body.refresh_token)
+
+    # Blacklist the consumed refresh token so it can't be reused
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if jti and exp:
+        await blacklist_token(jti, datetime.utcfromtimestamp(exp))
+
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+
+    access_token = create_access_token(
+        data={"sub": str(user.id), "role": user.role.value}
+    )
+    new_refresh_token, _ = create_refresh_token(
+        data={"sub": str(user.id), "role": user.role.value}
+    )
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "refresh_expires_in": 30 * 24 * 60 * 60,
+        "user": user,
+    }
 
 
 @router.get("/profile", response_model=UserResponse)
@@ -320,16 +409,20 @@ def register_admin(
     db.commit()
     db.refresh(user)
     
-    # Create access token
     access_token = create_access_token(
+        data={"sub": str(user.id), "role": user.role.value, "store_id": str(user.store_id)}
+    )
+    refresh_token, _ = create_refresh_token(
         data={"sub": str(user.id), "role": user.role.value, "store_id": str(user.store_id)}
     )
     
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
-        "expires_in": 604800,
-        "user": user
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "refresh_expires_in": 30 * 24 * 60 * 60,
+        "user": user,
     }
 
 
@@ -420,4 +513,117 @@ async def get_my_orders(
     )
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# API Key Management
+# ──────────────────────────────────────────────────────────────────────────────
 
+@router.post("/api-keys", response_model=APIKeyCreatedResponse, status_code=status.HTTP_201_CREATED)
+def create_api_key(
+    key_data: APIKeyCreate,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Create a new API key (admin/super-admin only).
+    The raw key is returned **once** — store it securely; it cannot be retrieved again.
+    """
+    from datetime import timezone
+
+    # Super-admins can create keys for any store; admins only for their own.
+    if key_data.store_id and current_user.role != UserRole.SUPER_ADMIN:
+        if str(current_user.store_id) != str(key_data.store_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot create key for another store")
+
+    raw_key, key_hash = generate_api_key(is_test=key_data.is_test)
+
+    expires_at = None
+    if key_data.expires_days:
+        expires_at = datetime.utcnow() + timedelta(days=key_data.expires_days)
+
+    api_key = APIKey(
+        name=key_data.name,
+        key_hash=key_hash,
+        key_prefix=raw_key[:12],
+        is_test=key_data.is_test,
+        scopes=key_data.scopes,
+        store_id=key_data.store_id or current_user.store_id,
+        user_id=current_user.id,
+        expires_at=expires_at,
+    )
+
+    db.add(api_key)
+    db.commit()
+    db.refresh(api_key)
+
+    return {**APIKeyResponse.from_orm(api_key).dict(), "raw_key": raw_key}
+
+
+@router.get("/api-keys", response_model=List[APIKeyResponse])
+def list_api_keys(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """List all API keys for the current admin's store (or all stores for super-admin)."""
+    query = db.query(APIKey)
+    if current_user.role != UserRole.SUPER_ADMIN:
+        query = query.filter(APIKey.store_id == current_user.store_id)
+    return query.order_by(APIKey.created_at.desc()).all()
+
+
+@router.delete("/api-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_api_key(
+    key_id: str,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Revoke (soft-delete) an API key."""
+    api_key = db.query(APIKey).filter(APIKey.id == key_id).first()
+    if not api_key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found")
+
+    if current_user.role != UserRole.SUPER_ADMIN and str(api_key.store_id) != str(current_user.store_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to revoke this key")
+
+    api_key.is_active = False
+    api_key.revoked_at = datetime.utcnow()
+    db.commit()
+    return None
+
+
+@router.patch("/api-keys/{key_id}/rotate", response_model=APIKeyCreatedResponse)
+def rotate_api_key(
+    key_id: str,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Rotate an API key — revoke the existing key and issue a new one with the same settings.
+    Returns the new raw key (shown once).
+    """
+    old_key = db.query(APIKey).filter(APIKey.id == key_id, APIKey.is_active == True).first()
+    if not old_key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active API key not found")
+    if current_user.role != UserRole.SUPER_ADMIN and str(old_key.store_id) != str(current_user.store_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
+    # Revoke old key
+    old_key.is_active   = False
+    old_key.revoked_at  = datetime.utcnow()
+
+    # Create replacement
+    raw_key, key_hash = generate_api_key(is_test=old_key.is_test)
+    new_key = APIKey(
+        name=old_key.name + " (rotated)",
+        key_hash=key_hash,
+        key_prefix=raw_key[:12],
+        is_test=old_key.is_test,
+        scopes=old_key.scopes,
+        store_id=old_key.store_id,
+        user_id=current_user.id,
+        expires_at=old_key.expires_at,
+    )
+    db.add(new_key)
+    db.commit()
+    db.refresh(new_key)
+
+    return {**APIKeyResponse.from_orm(new_key).dict(), "raw_key": raw_key}

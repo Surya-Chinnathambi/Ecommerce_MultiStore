@@ -3,8 +3,10 @@ Application Configuration
 Manages environment variables and settings
 """
 from pydantic_settings import BaseSettings
+from pydantic import field_validator, model_validator
 from typing import List, Optional
 from functools import lru_cache
+import warnings
 
 
 class Settings(BaseSettings):
@@ -23,12 +25,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # CORS
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:5173"
-    ]
+    # CORS - Allow all origins in development
+    ALLOWED_ORIGINS: List[str] = ["*"]
     
     # Database
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/ecommerce_platform"
@@ -43,11 +41,20 @@ class Settings(BaseSettings):
     REDIS_MAX_CONNECTIONS: int = 50
     
     # Cache TTL (seconds)
-    CACHE_TTL_PRODUCTS: int = 900  # 15 minutes
-    CACHE_TTL_INVENTORY: int = 60  # 1 minute
-    CACHE_TTL_STORE_CONFIG: int = 3600  # 1 hour
-    CACHE_TTL_CATEGORIES: int = 1800  # 30 minutes
-    
+    CACHE_TTL_PRODUCTS: int = 900          # 15 minutes — single product
+    CACHE_TTL_PRODUCT_LIST: int = 300      # 5 minutes  — filtered product listings
+    CACHE_TTL_INVENTORY: int = 60          # 1 minute   — inventory is time-sensitive
+    CACHE_TTL_STORE_CONFIG: int = 3600     # 1 hour     — store config rarely changes
+    CACHE_TTL_CATEGORIES: int = 1800       # 30 minutes — category structure
+    CACHE_TTL_ORDERS: int = 30             # 30 seconds — order status changes fast
+    CACHE_TTL_SEARCH_RESULTS: int = 300    # 5 minutes  — search result pages
+    CACHE_ENABLED: bool = True             # Master switch — set False to bypass all caching
+
+    # Database Connection Pool Tuning
+    DB_POOL_RECYCLE: int = 1800            # Recycle stale connections every 30 min
+    DB_POOL_TIMEOUT: int = 30             # Max seconds to wait for a pool connection
+    DB_STATEMENT_TIMEOUT_MS: int = 30000  # Hard per-query timeout — prevents runaway queries
+
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_TIER1_SYNC: int = 1000  # requests per minute
@@ -129,6 +136,46 @@ class Settings(BaseSettings):
     CART_EXPIRY_HOURS: int = 24
     ORDER_CANCELLATION_WINDOW_HOURS: int = 1
     LOW_STOCK_THRESHOLD: int = 10
+
+    # Typesense
+    TYPESENSE_HOST: str = "localhost"
+    TYPESENSE_PORT: int = 8108
+    TYPESENSE_API_KEY: str = "typesense-dev-key"
+    TYPESENSE_COLLECTION: str = "products"
+
+    # ── Validators ──────────────────────────────────────────────────────
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def secret_key_must_be_strong(cls, v: str) -> str:
+        insecure_default = "your-secret-key-change-in-production"
+        if v == insecure_default:
+            warnings.warn(
+                "SECRET_KEY is set to the insecure default value! "
+                "Set a cryptographically random SECRET_KEY before going to production.",
+                stacklevel=2,
+            )
+        elif len(v) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters long")
+        return v
+
+    @model_validator(mode="after")
+    def enforce_production_settings(self) -> "Settings":
+        if self.ENVIRONMENT == "production":
+            insecure_key = "your-secret-key-change-in-production"
+            if self.SECRET_KEY == insecure_key:
+                raise ValueError(
+                    "[production] SECRET_KEY must not be the default insecure value."
+                )
+            if self.ALLOWED_ORIGINS == ["*"]:
+                raise ValueError(
+                    "[production] ALLOWED_ORIGINS must not be '*' — "
+                    "set explicit origin domains."
+                )
+            if len(self.SECRET_KEY) < 32:
+                raise ValueError(
+                    "[production] SECRET_KEY must be at least 32 characters."
+                )
+        return self
     
     class Config:
         env_file = ".env"

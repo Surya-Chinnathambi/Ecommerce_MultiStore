@@ -1,10 +1,11 @@
 """
 Redis Client Configuration and Caching Utilities
 """
+import hashlib
 import redis.asyncio as redis
 import json
 import logging
-from typing import Optional, Any
+from typing import Any, List, Optional
 from functools import wraps
 
 from app.core.config import settings
@@ -97,17 +98,51 @@ class RedisClient:
             return 0
     
     async def delete_pattern(self, pattern: str) -> int:
-        """Delete all keys matching pattern"""
+        """
+        Delete all keys matching pattern using SCAN (non-blocking, production-safe).
+        Avoids the KEYS command which blocks the entire Redis server on large keyspaces.
+        """
         if not self.redis:
             return 0
         try:
-            keys = await self.redis.keys(pattern)
+            keys = [key async for key in self.redis.scan_iter(match=pattern, count=100)]
             if keys:
                 return await self.redis.delete(*keys)
             return 0
         except Exception as e:
             logger.error(f"Redis DELETE pattern failed for {pattern}: {e}")
             return 0
+
+    async def mget_json(self, *keys: str) -> List[Optional[Any]]:
+        """
+        Fetch multiple JSON keys in a single round-trip.
+        Returns a list aligned with *keys; missing/null keys yield None.
+        """
+        if not self.redis:
+            return [None] * len(keys)
+        try:
+            values = await self.redis.mget(*keys)
+            return [
+                json.loads(v) if v is not None else None
+                for v in values
+            ]
+        except Exception as e:
+            logger.error(f"Redis MGET failed: {e}")
+            return [None] * len(keys)
+
+    def pipeline(self):
+        """
+        Return a Redis pipeline for batched operations.
+
+        Usage::
+            async with redis_client.pipeline() as pipe:
+                pipe.set("key1", "v1")
+                pipe.set("key2", "v2")
+                await pipe.execute()
+        """
+        if not self.redis:
+            return None
+        return self.redis.pipeline(transaction=False)
     
     async def increment(self, key: str, amount: int = 1, ttl: Optional[int] = None) -> int:
         """Increment counter"""
@@ -178,6 +213,23 @@ class CacheKeys:
     @staticmethod
     def cart(session_id: str) -> str:
         return f"cart:{session_id}"
+
+    @staticmethod
+    def product_list(store_id: str, **params) -> str:
+        """Deterministic key for a filtered / paginated product listing."""
+        h = hashlib.md5(
+            json.dumps(params, sort_keys=True, default=str).encode()
+        ).hexdigest()[:10]
+        return f"store:{store_id}:products:list:{h}"
+
+    @staticmethod
+    def search_results(store_id: str, query: str, page: int = 1) -> str:
+        h = hashlib.md5(query.encode()).hexdigest()[:10]
+        return f"store:{store_id}:search:{h}:{page}"
+
+    @staticmethod
+    def orders_page(store_id: str, status: str = "all", page: int = 1) -> str:
+        return f"store:{store_id}:orders:{status}:{page}"
 
 
 # Decorator for caching function results

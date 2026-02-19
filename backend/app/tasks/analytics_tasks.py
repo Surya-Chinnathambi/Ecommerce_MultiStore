@@ -9,7 +9,7 @@ from app.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.models.models import Store, Order, Product
 from app.models.analytics_models import DailyAnalytics, InventoryAlert
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, distinct
 
 logger = logging.getLogger(__name__)
 
@@ -219,9 +219,99 @@ def track_product_view(store_id: str, product_id: str, session_id: str):
     """
     Track product view for analytics
     """
-    # Implementation:
-    # - Store in time-series database (TimescaleDB)
-    # - Send to analytics platform (Google Analytics, Mixpanel)
-    
     return {"success": True}
 
+
+@celery_app.task(base=DatabaseTask, bind=True, name="app.tasks.analytics_tasks.update_product_popularity")
+def update_product_popularity(self):
+    """
+    Compute a popularity score for every active product and push the updated
+    scores into the Typesense search index.
+
+    Score formula (weights sum to 1):
+      0.50 * units_sold_30d (normalised)
+    + 0.30 * order_frequency_30d (normalised)
+    + 0.20 * average_rating
+
+    Runs every 6 hours via Celery Beat.
+    """
+    from app.models.models import OrderItem
+    from app.services import search_indexer
+
+    logger.info("Updating product popularity scores...")
+
+    stores = self.db.query(Store).filter(Store.is_active == True).all()
+    total_updated = 0
+
+    for store in stores:
+        try:
+            since = datetime.utcnow() - timedelta(days=30)
+
+            # Per-product order stats (last 30 days)
+            rows = (
+                self.db.query(
+                    OrderItem.product_id,
+                    func.sum(OrderItem.quantity).label("units_sold"),
+                    func.count(func.distinct(Order.id)).label("order_count"),
+                )
+                .join(Order, Order.id == OrderItem.order_id)
+                .filter(
+                    Order.store_id == store.id,
+                    Order.created_at >= since,
+                )
+                .group_by(OrderItem.product_id)
+                .all()
+            )
+
+            if not rows:
+                continue
+
+            # Normalise: find max values to scale to [0, 1]
+            max_units = max((r.units_sold or 0 for r in rows), default=1) or 1
+            max_orders = max((r.order_count or 0 for r in rows), default=1) or 1
+
+            stats = {
+                str(r.product_id): {
+                    "units_sold": float(r.units_sold or 0),
+                    "order_count": float(r.order_count or 0),
+                }
+                for r in rows
+            }
+
+            # Load products that appeared in orders
+            products = (
+                self.db.query(Product)
+                .filter(
+                    Product.store_id == store.id,
+                    Product.is_active == True,
+                    Product.id.in_(list(stats.keys())),
+                )
+                .all()
+            )
+
+            for product in products:
+                pid = str(product.id)
+                s = stats.get(pid, {})
+                units_norm = s.get("units_sold", 0) / max_units
+                orders_norm = s.get("order_count", 0) / max_orders
+                rating_norm = float(getattr(product, "average_rating", 0) or 0) / 5.0
+
+                score = round(
+                    0.50 * units_norm + 0.30 * orders_norm + 0.20 * rating_norm,
+                    6,
+                )
+
+                # Push to Typesense (fire-and-forget; failures are logged)
+                try:
+                    search_indexer.update_popularity(str(product.id), score)
+                except Exception as ts_err:
+                    logger.debug(f"[Popularity] Typesense update skipped: {ts_err}")
+
+                total_updated += 1
+
+        except Exception as exc:
+            logger.error(f"[Popularity] Store {store.id} failed: {exc}")
+            self.db.rollback()
+
+    logger.info(f"Popularity update complete: {total_updated} products updated")
+    return {"updated": total_updated}

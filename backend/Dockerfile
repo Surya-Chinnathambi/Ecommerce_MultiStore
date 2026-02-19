@@ -23,8 +23,24 @@ COPY . .
 # Create directories for uploads and logs
 RUN mkdir -p /app/uploads /app/logs
 
+# Copy and configure entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Expose port
 EXPOSE 8000
 
-# Default command (can be overridden in docker-compose)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Entrypoint runs migrations then starts the app
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Production: Gunicorn with Uvicorn workers (4 workers for 2-core container)
+# Override with `command` in docker-compose for dev mode (uvicorn --reload)
+CMD ["gunicorn", "app.main:app", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--workers", "4", \
+     "--bind", "0.0.0.0:8000", \
+     "--timeout", "120", \
+     "--keepalive", "5", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "--log-level", "info"]

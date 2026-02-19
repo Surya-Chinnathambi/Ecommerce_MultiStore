@@ -203,7 +203,12 @@ class Product(Base):
     order_items = relationship("OrderItem", back_populates="product")
     flash_sales = relationship("FlashSale", back_populates="product")
     reviews = relationship("ProductReview", back_populates="product", cascade="all, delete-orphan")
-    reviews = relationship("ProductReview", back_populates="product", cascade="all, delete-orphan")
+    variant_groups = relationship("ProductVariantGroup", cascade="all, delete-orphan",
+                                  foreign_keys="ProductVariantGroup.product_id")
+    wishlist_items = relationship("WishlistItem", cascade="all, delete-orphan",
+                                  foreign_keys="WishlistItem.product_id")
+    seller_listings = relationship("SellerProduct", cascade="all, delete-orphan",
+                                   foreign_keys="SellerProduct.product_id")
 
     __table_args__ = (
         Index('idx_product_store_external', 'store_id', 'external_id', unique=True),
@@ -223,8 +228,7 @@ class Order(Base):
     order_number = Column(String(50), unique=True, nullable=False, index=True)
     
     # Customer Info
-    # TODO: Add user_id column to database
-    # user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     customer_name = Column(String(200), nullable=False)
     customer_phone = Column(String(20), nullable=False, index=True)
     customer_email = Column(String(255), nullable=True)
@@ -241,6 +245,10 @@ class Order(Base):
     payment_status = Column(SQLEnum(PaymentStatus), default=PaymentStatus.COD, nullable=False, index=True)
     payment_method = Column(String(50), default="COD")
     
+    # Coupon
+    coupon_code = Column(String(50), index=True)
+    coupon_id = Column(UUID(as_uuid=True), ForeignKey("coupons.id", ondelete="SET NULL"), nullable=True)
+
     # Pricing
     subtotal = Column(Float, nullable=False)
     tax_amount = Column(Float, default=0)
@@ -267,10 +275,10 @@ class Order(Base):
     
     # Relationships
     store = relationship("Store", back_populates="orders")
-    # TODO: Uncomment when user_id column is added to database
-    # user = relationship("User", back_populates="orders", foreign_keys=[user_id])
+    user = relationship("User", back_populates="orders", foreign_keys="Order.user_id")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="order", cascade="all, delete-orphan")
+    return_requests = relationship("ReturnRequest", foreign_keys="ReturnRequest.order_id")
     
     __table_args__ = (
         Index('idx_order_store_status', 'store_id', 'order_status'),

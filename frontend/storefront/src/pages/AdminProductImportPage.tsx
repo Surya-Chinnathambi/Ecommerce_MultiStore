@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { Upload, Download, AlertCircle, RefreshCw, XCircle } from 'lucide-react'
-import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/components/ui/Toaster'
-import axios from 'axios'
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+import { api } from '@/lib/api'
 
 interface ImportResult {
     total_rows: number
@@ -98,20 +95,14 @@ export default function AdminProductImportPage() {
         formData.append('column_mapping', JSON.stringify(columnMapping))
 
         try {
-            const token = useAuthStore.getState().token
-            const response = await axios.post(
-                `${API_BASE_URL}/billing/import/csv`,
-                formData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                        Authorization: `Bearer ${token}`,
-                    },
-                    params: {
-                        entity_type: 'products',
-                    },
-                }
-            )
+            const response = await api.post('/billing/import/csv', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+                params: {
+                    entity_type: 'products',
+                },
+            })
 
             setImportResult(response.data.data)
 
@@ -155,19 +146,19 @@ export default function AdminProductImportPage() {
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold mb-2">Product Import from Billing Software</h1>
-                    <p className="text-gray-600">
+                    <h1 className="text-3xl font-bold mb-2 text-text-primary">Product Import from Billing Software</h1>
+                    <p className="text-text-secondary">
                         Import or update products from your billing software using CSV files
                     </p>
                 </div>
 
                 {/* Instructions Card */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-                    <h2 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                        <AlertCircle className="h-5 w-5" />
+                <div className="rounded-lg p-6 mb-6 bg-theme-primary/10 border border-border-color">
+                    <h2 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
+                        <AlertCircle className="h-5 w-5 text-theme-primary" />
                         How to Import Products
                     </h2>
-                    <ol className="list-decimal list-inside space-y-2 text-blue-800">
+                    <ol className="list-decimal list-inside space-y-2 text-text-secondary">
                         <li>Export products from your billing software as CSV</li>
                         <li>Or download our template and fill in your product data</li>
                         <li>Upload the CSV file below</li>
@@ -177,7 +168,7 @@ export default function AdminProductImportPage() {
                     <div className="mt-4">
                         <button
                             onClick={downloadTemplate}
-                            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+                            className="flex items-center gap-2 text-theme-primary hover:text-theme-primary-hover font-medium"
                         >
                             <Download className="h-4 w-4" />
                             Download CSV Template
@@ -186,10 +177,10 @@ export default function AdminProductImportPage() {
                 </div>
 
                 {/* File Upload Section */}
-                <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <h2 className="text-xl font-semibold mb-4">Upload CSV File</h2>
+                <div className="card mb-6">
+                    <h2 className="text-xl font-semibold mb-4 text-text-primary">Upload CSV File</h2>
 
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <div className="border-2 border-dashed border-border-color rounded-lg p-8 text-center bg-bg-primary">
                         <input
                             type="file"
                             accept=".csv"
@@ -201,20 +192,20 @@ export default function AdminProductImportPage() {
                             htmlFor="csv-upload"
                             className="cursor-pointer flex flex-col items-center gap-4"
                         >
-                            <Upload className="h-12 w-12 text-gray-400" />
+                            <Upload className="h-12 w-12 text-text-tertiary" />
                             {file ? (
                                 <div className="text-center">
-                                    <p className="font-medium text-gray-900">{file.name}</p>
-                                    <p className="text-sm text-gray-500 mt-1">
+                                    <p className="font-medium text-text-primary">{file.name}</p>
+                                    <p className="text-sm text-text-tertiary mt-1">
                                         {(file.size / 1024).toFixed(2)} KB
                                     </p>
                                 </div>
                             ) : (
                                 <div>
-                                    <p className="text-gray-600 mb-1">
+                                    <p className="text-text-secondary mb-1">
                                         Click to upload or drag and drop
                                     </p>
-                                    <p className="text-sm text-gray-500">CSV files only</p>
+                                    <p className="text-sm text-text-tertiary">CSV files only</p>
                                 </div>
                             )}
                         </label>
@@ -223,12 +214,12 @@ export default function AdminProductImportPage() {
 
                 {/* Column Mapping Section */}
                 {file && csvHeaders.length > 0 && (
-                    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <div className="card mb-6">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-semibold">Column Mapping</h2>
+                            <h2 className="text-xl font-semibold text-text-primary">Column Mapping</h2>
                             <button
                                 onClick={() => setShowMapping(!showMapping)}
-                                className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+                                className="text-theme-primary hover:text-theme-primary-hover text-sm font-medium"
                             >
                                 {showMapping ? 'Hide' : 'Show'} Mapping
                             </button>
@@ -238,7 +229,7 @@ export default function AdminProductImportPage() {
                             <div className="space-y-4">
                                 {productFields.map(field => (
                                     <div key={field.key} className="flex items-center gap-4">
-                                        <label className="w-1/3 text-sm font-medium text-gray-700">
+                                        <label className="w-1/3 text-sm font-medium text-text-primary">
                                             {field.label}
                                             {field.required && (
                                                 <span className="text-red-500 ml-1">*</span>
@@ -252,7 +243,7 @@ export default function AdminProductImportPage() {
                                                     [field.key]: e.target.value,
                                                 }))
                                             }
-                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                            className="flex-1 input"
                                             aria-label={`Map ${field.label} column`}
                                         >
                                             <option value="">-- Not Mapped --</option>
@@ -267,8 +258,8 @@ export default function AdminProductImportPage() {
                             </div>
                         )}
 
-                        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                            <p className="text-sm text-gray-600">
+                        <div className="mt-4 p-4 bg-bg-secondary border border-border-color rounded-lg">
+                            <p className="text-sm text-text-secondary">
                                 <strong>Auto-detected mappings:</strong> {Object.keys(columnMapping).length} fields mapped
                             </p>
                         </div>
@@ -277,18 +268,18 @@ export default function AdminProductImportPage() {
 
                 {/* Import Button */}
                 {file && (
-                    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <div className="card mb-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <h3 className="font-semibold text-gray-900">Ready to Import</h3>
-                                <p className="text-sm text-gray-600 mt-1">
+                                <h3 className="font-semibold text-text-primary">Ready to Import</h3>
+                                <p className="text-sm text-text-secondary mt-1">
                                     Existing products will be updated, new products will be created
                                 </p>
                             </div>
                             <button
                                 onClick={handleImport}
                                 disabled={importing}
-                                className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                className="btn btn-primary flex items-center gap-2 px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {importing ? (
                                     <>
@@ -308,46 +299,46 @@ export default function AdminProductImportPage() {
 
                 {/* Import Results */}
                 {importResult && (
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-xl font-semibold mb-4">Import Results</h2>
+                    <div className="card">
+                        <h2 className="text-xl font-semibold mb-4 text-text-primary">Import Results</h2>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div className="text-center p-4 bg-gray-50 rounded-lg">
-                                <p className="text-2xl font-bold text-gray-900">
+                            <div className="text-center p-4 bg-bg-secondary border border-border-color rounded-lg">
+                                <p className="text-2xl font-bold text-text-primary">
                                     {importResult.total_rows}
                                 </p>
-                                <p className="text-sm text-gray-600">Total Rows</p>
+                                <p className="text-sm text-text-secondary">Total Rows</p>
                             </div>
-                            <div className="text-center p-4 bg-green-50 rounded-lg">
-                                <p className="text-2xl font-bold text-green-600">
+                            <div className="text-center p-4 bg-green-500/10 border border-border-color rounded-lg">
+                                <p className="text-2xl font-bold text-green-500">
                                     {importResult.succeeded}
                                 </p>
-                                <p className="text-sm text-gray-600">Succeeded</p>
+                                <p className="text-sm text-text-secondary">Succeeded</p>
                             </div>
-                            <div className="text-center p-4 bg-red-50 rounded-lg">
-                                <p className="text-2xl font-bold text-red-600">
+                            <div className="text-center p-4 bg-red-500/10 border border-border-color rounded-lg">
+                                <p className="text-2xl font-bold text-red-500">
                                     {importResult.failed}
                                 </p>
-                                <p className="text-sm text-gray-600">Failed</p>
+                                <p className="text-sm text-text-secondary">Failed</p>
                             </div>
-                            <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                                <p className="text-2xl font-bold text-yellow-600">
+                            <div className="text-center p-4 bg-yellow-500/10 border border-border-color rounded-lg">
+                                <p className="text-2xl font-bold text-yellow-500">
                                     {importResult.skipped}
                                 </p>
-                                <p className="text-sm text-gray-600">Skipped</p>
+                                <p className="text-sm text-text-secondary">Skipped</p>
                             </div>
                         </div>
 
                         <div className="flex gap-4 mb-6">
-                            <div className="flex-1 p-4 bg-blue-50 rounded-lg">
-                                <p className="text-sm text-gray-600">Created</p>
-                                <p className="text-xl font-bold text-blue-600">
+                            <div className="flex-1 p-4 bg-theme-primary/10 border border-border-color rounded-lg">
+                                <p className="text-sm text-text-secondary">Created</p>
+                                <p className="text-xl font-bold text-theme-primary">
                                     {importResult.created_count}
                                 </p>
                             </div>
-                            <div className="flex-1 p-4 bg-purple-50 rounded-lg">
-                                <p className="text-sm text-gray-600">Updated</p>
-                                <p className="text-xl font-bold text-purple-600">
+                            <div className="flex-1 p-4 bg-bg-secondary border border-border-color rounded-lg">
+                                <p className="text-sm text-text-secondary">Updated</p>
+                                <p className="text-xl font-bold text-text-primary">
                                     {importResult.updated_count}
                                 </p>
                             </div>
@@ -355,7 +346,7 @@ export default function AdminProductImportPage() {
 
                         {importResult.errors && importResult.errors.length > 0 && (
                             <div>
-                                <h3 className="font-semibold text-red-600 mb-3 flex items-center gap-2">
+                                <h3 className="font-semibold text-red-500 mb-3 flex items-center gap-2">
                                     <XCircle className="h-5 w-5" />
                                     Errors ({importResult.errors.length})
                                 </h3>
@@ -363,7 +354,7 @@ export default function AdminProductImportPage() {
                                     {importResult.errors.map((error, idx) => (
                                         <div
                                             key={idx}
-                                            className="p-3 bg-red-50 border border-red-200 rounded text-sm"
+                                            className="p-3 bg-red-500/10 border border-border-color rounded text-sm text-text-primary"
                                         >
                                             <span className="font-medium">Row {error.row}:</span>{' '}
                                             {error.error}
