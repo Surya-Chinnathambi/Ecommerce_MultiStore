@@ -145,8 +145,3 @@ class UserProductView(Base):
     # Relationships
     product = relationship("Product")
     store = relationship("Store")
-    
-    __table_args__ = (
-        Index('idx_store_unresolved', 'store_id', 'is_resolved'),
-        Index('idx_product_type', 'product_id', 'alert_type'),
-    )

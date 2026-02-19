@@ -34,19 +34,18 @@ services:
       timeout: 5s
       retries: 5
 
-  # React Storefront (Vite dev server with HMR)
+  # React Storefront (production: Nginx serving built static files)
   storefront:
-    image: node:18-alpine
+    build:
+      context: ./frontend/storefront
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_WS_URL: ws://localhost/api/v1
+    image: ecommerce-platform-storefront:latest
     container_name: ecommerce_storefront
-    working_dir: /app
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
-    volumes:
-      - ./frontend/storefront:/app
-      - storefront_node_modules:/app/node_modules
     ports:
-      - "5173:5173"   # Direct access for dev; production traffic comes via nginx
-    environment:
-      - VITE_API_URL=http://localhost/api
+      - "5173:80"   # Nginx inside container listens on 80; mapped to 5173 for compat
     restart: unless-stopped
 
   # Nginx Reverse Proxy (single entry-point: port 80)
@@ -300,7 +299,7 @@ services:
     ports:
       - "8108:8108"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8108/health"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8108' 2>/dev/null || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -316,6 +315,5 @@ volumes:
   celerybeat_data:         # Persists Celery Beat schedule across restarts
   backend_uploads:         # Shared uploads volume (backend + worker)
   backend_logs:            # Centralised log directory
-  storefront_node_modules: # Prevents host node_modules from polluting container
   prometheus_data:         # Prometheus time-series data (15-day retention)
   grafana_data:            # Grafana state, users, dashboard edits

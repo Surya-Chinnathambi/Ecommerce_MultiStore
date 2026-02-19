@@ -13,7 +13,8 @@ export default function MonitoringDashboard() {
         refetchInterval: 5000,
     })
 
-    const { data: redisStats } = useQuery({
+    const { data: redisStats } = useQuery<any>({
+        queryKey: ['redis-stats'],
         queryFn: () => api.get('/monitoring/redis/stats').then(res => res.data.data),
         refetchInterval: 10000,
     })

@@ -72,13 +72,13 @@ class Store(Base):
     language = Column(String(10), default="en")
     
     # Sync Configuration
-    sync_tier = Column(SQLEnum(StoreTier), default=StoreTier.TIER3, index=True)
+    sync_tier = Column(SQLEnum(StoreTier, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=StoreTier.TIER3, index=True)
     sync_interval_minutes = Column(Integer, default=30)
     last_sync_at = Column(DateTime, index=True)
     sync_api_key = Column(String(255), unique=True, nullable=False)  # For sync agent auth
     
     # Status
-    status = Column(SQLEnum(StoreStatus), default=StoreStatus.TRIAL, index=True)
+    status = Column(SQLEnum(StoreStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=StoreStatus.TRIAL, index=True)
     is_active = Column(Boolean, default=True, index=True)
     trial_ends_at = Column(DateTime)
     subscription_ends_at = Column(DateTime)
@@ -241,8 +241,8 @@ class Order(Base):
     delivery_landmark = Column(String(200))
     
     # Order Details
-    order_status = Column(SQLEnum(OrderStatus), default=OrderStatus.PENDING, nullable=False, index=True)
-    payment_status = Column(SQLEnum(PaymentStatus), default=PaymentStatus.COD, nullable=False, index=True)
+    order_status = Column(SQLEnum(OrderStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=OrderStatus.PENDING, nullable=False, index=True)
+    payment_status = Column(SQLEnum(PaymentStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=PaymentStatus.COD, nullable=False, index=True)
     payment_method = Column(String(50), default="COD")
     
     # Coupon
@@ -339,3 +339,4 @@ class SyncLog(Base):
     __table_args__ = (
         Index('idx_sync_log_store_date', 'store_id', 'started_at'),
     )
+

@@ -65,13 +65,13 @@ class BillingIntegration(Base):
     
     # Integration Details
     name = Column(String(200), nullable=False)  # User-friendly name
-    provider = Column(SQLEnum(BillingProvider), nullable=False, index=True)
+    provider = Column(SQLEnum(BillingProvider, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False, index=True)
     
     # Configuration
     config = Column(JSONB, default={})  # API keys, endpoints, credentials (encrypted)
     is_active = Column(Boolean, default=True, index=True)
     auto_sync = Column(Boolean, default=False)  # Enable automatic sync
-    sync_direction = Column(SQLEnum(SyncDirection), default=SyncDirection.PUSH)
+    sync_direction = Column(SQLEnum(SyncDirection, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=SyncDirection.PUSH)
     sync_frequency_minutes = Column(Integer, default=60)  # How often to sync (if auto_sync)
     
     # Sync Settings
@@ -109,9 +109,9 @@ class BillingSyncLog(Base):
     
     # Sync Details
     sync_type = Column(String(50), nullable=False)  # manual, auto, scheduled
-    entity_type = Column(SQLEnum(EntityType), nullable=False, index=True)
-    direction = Column(SQLEnum(SyncDirection), nullable=False)
-    status = Column(SQLEnum(SyncStatus), nullable=False, index=True)
+    entity_type = Column(SQLEnum(EntityType, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False, index=True)
+    direction = Column(SQLEnum(SyncDirection, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False)
+    status = Column(SQLEnum(SyncStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False, index=True)
     
     # Results
     records_processed = Column(Integer, default=0)
@@ -153,7 +153,7 @@ class InvoiceExport(Base):
     # Export Details
     invoice_number = Column(String(100), nullable=False, index=True)
     external_id = Column(String(200), nullable=True, index=True)  # ID in external system
-    provider = Column(SQLEnum(BillingProvider), nullable=False)
+    provider = Column(SQLEnum(BillingProvider, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False)
     
     # Data
     invoice_data = Column(JSONB, default={})  # Full invoice data exported
@@ -195,7 +195,7 @@ class ProductImport(Base):
     # Import Details
     external_id = Column(String(200), nullable=False, index=True)
     external_sku = Column(String(100), nullable=True)
-    provider = Column(SQLEnum(BillingProvider), nullable=False)
+    provider = Column(SQLEnum(BillingProvider, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False)
     
     # Data
     product_data = Column(JSONB, default={})  # Raw data from external system
@@ -233,8 +233,8 @@ class CSVTemplate(Base):
     
     # Template Details
     name = Column(String(200), nullable=False)
-    entity_type = Column(SQLEnum(EntityType), nullable=False)
-    direction = Column(SQLEnum(SyncDirection), nullable=False)
+    entity_type = Column(SQLEnum(EntityType, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False)
+    direction = Column(SQLEnum(SyncDirection, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False)
     
     # Configuration
     column_mappings = Column(JSONB, default={})  # Maps CSV columns to system fields
@@ -257,3 +257,4 @@ class CSVTemplate(Base):
     
     # Relationships
     store = relationship("Store")
+

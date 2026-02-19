@@ -9,7 +9,7 @@ from decimal import Decimal
 from datetime import datetime
 
 from app.core.database import get_db
-from app.core.security import get_current_active_user
+from app.core.security import get_current_user as get_current_active_user
 from app.models.auth_models import User
 from app.models.models import Order
 from app.services.invoice_ninja import InvoiceNinjaClient, InvoiceNinjaSync

@@ -53,8 +53,8 @@ class Payment(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     
     # Payment Details
-    payment_gateway = Column(SQLEnum(PaymentGateway), nullable=False, index=True)
-    status = Column(SQLEnum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False, index=True)
+    payment_gateway = Column(SQLEnum(PaymentGateway, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False, index=True)
+    status = Column(SQLEnum(PaymentStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=PaymentStatus.PENDING, nullable=False, index=True)
     
     # Amount
     amount = Column(Float, nullable=False)  # Total payment amount
@@ -125,7 +125,7 @@ class Refund(Base):
     order_id = Column(UUID(as_uuid=True), ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Refund Details
-    status = Column(SQLEnum(RefundStatus), default=RefundStatus.PENDING, nullable=False, index=True)
+    status = Column(SQLEnum(RefundStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=RefundStatus.PENDING, nullable=False, index=True)
     amount = Column(Float, nullable=False)  # Refund amount
     currency = Column(String(3), default="INR", nullable=False)
     reason = Column(Text)  # Reason for refund
@@ -174,7 +174,7 @@ class PaymentWebhook(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     
     # Gateway Details
-    gateway = Column(SQLEnum(PaymentGateway), nullable=False, index=True)
+    gateway = Column(SQLEnum(PaymentGateway, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False, index=True)
     event_type = Column(String(100), nullable=False, index=True)  # payment.success, payment.failed, etc.
     event_id = Column(String(255), unique=True, index=True)  # Gateway's event ID
     
@@ -200,3 +200,4 @@ class PaymentWebhook(Base):
         Index('idx_webhook_gateway_event', 'gateway', 'event_type'),
         Index('idx_webhook_processed', 'processed', 'received_at'),
     )
+

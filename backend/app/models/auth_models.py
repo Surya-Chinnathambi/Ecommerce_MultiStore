@@ -22,7 +22,7 @@ class User(Base):
     phone = Column(String(20), unique=True, nullable=True, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
-    role = Column(SQLEnum(UserRole), nullable=False, default=UserRole.CUSTOMER)
+    role = Column(SQLEnum(UserRole, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False, default=UserRole.CUSTOMER)
     
     # Store relationship for admins
     store_id = Column(UUID(as_uuid=True), ForeignKey("stores.id"), nullable=True)

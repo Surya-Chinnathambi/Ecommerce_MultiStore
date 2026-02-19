@@ -156,6 +156,46 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis INCREMENT failed for key {key}: {e}")
             return 0
+
+    async def incr(self, key: str) -> int:
+        """Increment key by 1 (alias for atomic INCR)"""
+        if not self.redis:
+            return 0
+        try:
+            return await self.redis.incr(key)
+        except Exception as e:
+            logger.error(f"Redis INCR failed for key {key}: {e}")
+            return 0
+
+    async def expire(self, key: str, seconds: int) -> bool:
+        """Set a TTL (seconds) on an existing key"""
+        if not self.redis:
+            return False
+        try:
+            return await self.redis.expire(key, seconds)
+        except Exception as e:
+            logger.error(f"Redis EXPIRE failed for key {key}: {e}")
+            return False
+
+    async def ttl(self, key: str) -> int:
+        """Return remaining TTL in seconds (-1 if no TTL, -2 if not exists)"""
+        if not self.redis:
+            return -2
+        try:
+            return await self.redis.ttl(key)
+        except Exception as e:
+            logger.error(f"Redis TTL failed for key {key}: {e}")
+            return -2
+
+    async def setex(self, key: str, seconds: int, value: str) -> bool:
+        """Set key with an expiry (seconds)"""
+        if not self.redis:
+            return False
+        try:
+            return await self.redis.setex(key, seconds, value)
+        except Exception as e:
+            logger.error(f"Redis SETEX failed for key {key}: {e}")
+            return False
     
     async def exists(self, key: str) -> bool:
         """Check if key exists"""

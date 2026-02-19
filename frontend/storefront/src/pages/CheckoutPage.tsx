@@ -181,7 +181,6 @@ export default function CheckoutPage() {
         return null
     }
 
-    const watchPayment = 'payment_method'
     const STEPS = [
         { id: 1, label: 'Delivery Details', icon: '📍' },
         { id: 2, label: 'Payment Method', icon: '💳' },

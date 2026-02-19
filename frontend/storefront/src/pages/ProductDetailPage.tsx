@@ -34,6 +34,12 @@ export default function ProductDetailPage() {
         if (isAuthenticated && !isLoaded) fetchWishlist()
     }, [isAuthenticated])
 
+    const { data: productData, isLoading } = useQuery({
+        queryKey: ['product', productId],
+        queryFn: () => productsApi.getProduct(productId!).then(res => res.data.data),
+        enabled: !!productId,
+    })
+
     // Track recently viewed
     useEffect(() => {
         if (productData && productId) {
@@ -64,12 +70,6 @@ export default function ProductDetailPage() {
     }, [productData])
 
     const wishlisted = productId ? isWishlisted(productId) : false
-
-    const { data: productData, isLoading } = useQuery({
-        queryKey: ['product', productId],
-        queryFn: () => productsApi.getProduct(productId!).then(res => res.data.data),
-        enabled: !!productId,
-    })
 
     // Build image gallery — use product images array if present, fallback to thumbnail
     const images: string[] = productData?.images?.length

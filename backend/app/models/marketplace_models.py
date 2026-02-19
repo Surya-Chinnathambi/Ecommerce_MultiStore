@@ -88,7 +88,7 @@ class ProductVariantGroup(Base):
                         nullable=False, index=True)
 
     name          = Column(String(100), nullable=False)   # "Color", "Size"
-    variant_type  = Column(SQLEnum(VariantType), default=VariantType.CUSTOM)
+    variant_type  = Column(SQLEnum(VariantType, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=VariantType.CUSTOM)
     display_order = Column(Integer, default=0)
 
     # Relationships
@@ -221,7 +221,7 @@ class Seller(Base):
     payout_cycle_days = Column(Integer, default=7)   # weekly by default
 
     # Status
-    status               = Column(SQLEnum(SellerStatus), default=SellerStatus.PENDING, index=True)
+    status               = Column(SQLEnum(SellerStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=SellerStatus.PENDING, index=True)
     is_active            = Column(Boolean, default=False, index=True)
     kyc_verified         = Column(Boolean, default=False)
     kyc_documents        = Column(JSONB, default=[])   # S3 keys of uploaded docs
@@ -307,7 +307,7 @@ class SellerPayout(Base):
     refund_deductions = Column(Float, default=0.0)
     net_amount    = Column(Float, default=0.0)
 
-    status           = Column(SQLEnum(PayoutStatus), default=PayoutStatus.PENDING, index=True)
+    status           = Column(SQLEnum(PayoutStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=PayoutStatus.PENDING, index=True)
     payment_ref      = Column(String(100))        # UTR / transaction id
     payment_method   = Column(String(50))         # NEFT / UPI
     paid_at          = Column(DateTime)
@@ -344,11 +344,11 @@ class ReturnRequest(Base):
 
     return_number = Column(String(50), unique=True, nullable=False, index=True)
 
-    reason        = Column(SQLEnum(ReturnReason), nullable=False)
+    reason        = Column(SQLEnum(ReturnReason, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False)
     description   = Column(Text)
     images        = Column(JSONB, default=[])     # customer-uploaded proof photos
 
-    status         = Column(SQLEnum(ReturnStatus), default=ReturnStatus.REQUESTED, index=True)
+    status         = Column(SQLEnum(ReturnStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=ReturnStatus.REQUESTED, index=True)
     admin_notes    = Column(Text)
     rejection_reason = Column(Text)
 
@@ -415,7 +415,7 @@ class Coupon(Base):
 
     code          = Column(String(50), nullable=False)
     description   = Column(String(500))
-    coupon_type   = Column(SQLEnum(CouponType), nullable=False, default=CouponType.PERCENT)
+    coupon_type   = Column(SQLEnum(CouponType, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False, default=CouponType.PERCENT)
 
     # Discount values
     discount_value   = Column(Float, nullable=False)   # % or flat amount
@@ -515,3 +515,4 @@ class PincodeDelivery(Base):
         UniqueConstraint("store_id", "pincode", name="uq_pincode_store"),
         Index("idx_pincode_serviceable", "store_id", "is_serviceable"),
     )
+

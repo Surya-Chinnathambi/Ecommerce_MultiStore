@@ -55,7 +55,7 @@ class NotificationTemplate(Base):
     description = Column(Text)
     
     # Content
-    notification_type = Column(SQLEnum(NotificationType), nullable=False, index=True)
+    notification_type = Column(SQLEnum(NotificationType, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False, index=True)
     
     # Email specific
     subject = Column(String(500))  # For email
@@ -74,7 +74,7 @@ class NotificationTemplate(Base):
     
     # Settings
     is_active = Column(Boolean, default=True, index=True)
-    priority = Column(SQLEnum(NotificationPriority), default=NotificationPriority.NORMAL)
+    priority = Column(SQLEnum(NotificationPriority, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=NotificationPriority.NORMAL)
     
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -106,9 +106,9 @@ class Notification(Base):
     payment_id = Column(UUID(as_uuid=True), ForeignKey("payments.id", ondelete="SET NULL"), index=True)
     
     # Notification Details
-    notification_type = Column(SQLEnum(NotificationType), nullable=False, index=True)
-    status = Column(SQLEnum(NotificationStatus), default=NotificationStatus.PENDING, nullable=False, index=True)
-    priority = Column(SQLEnum(NotificationPriority), default=NotificationPriority.NORMAL)
+    notification_type = Column(SQLEnum(NotificationType, values_callable=lambda obj: [e.value for e in obj], create_type=False), nullable=False, index=True)
+    status = Column(SQLEnum(NotificationStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=NotificationStatus.PENDING, nullable=False, index=True)
+    priority = Column(SQLEnum(NotificationPriority, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=NotificationPriority.NORMAL)
     
     # Recipient Info
     recipient_email = Column(String(255), index=True)
@@ -235,3 +235,4 @@ class NotificationLog(Base):
         Index('idx_log_notification_event', 'notification_id', 'event_type'),
         Index('idx_log_occurred', 'occurred_at'),
     )
+

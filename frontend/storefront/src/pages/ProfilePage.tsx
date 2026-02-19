@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { authApi, orderApi } from '../lib/api'
-import { Trash2, Plus, MapPin, User, Lock, ShoppingBag, LogOut, Home, Briefcase } from 'lucide-react'
+import { Trash2, Plus, MapPin, User, Lock, ShoppingBag, LogOut } from 'lucide-react'
 
 interface Address {
   id: string

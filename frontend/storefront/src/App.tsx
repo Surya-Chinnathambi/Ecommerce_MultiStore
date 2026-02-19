@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate, Suspense, lazy } from 'react-router-dom'
+import { Suspense, lazy } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Toaster } from './components/ui/Toaster'
 import { ProtectedRoute } from './components/ProtectedRoute'

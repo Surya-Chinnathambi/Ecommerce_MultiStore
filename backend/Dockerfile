@@ -25,7 +25,7 @@ RUN mkdir -p /app/uploads /app/logs
 
 # Copy and configure entrypoint script
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Expose port
 EXPOSE 8000

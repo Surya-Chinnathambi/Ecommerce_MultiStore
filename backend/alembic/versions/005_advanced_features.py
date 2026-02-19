@@ -59,7 +59,7 @@ def upgrade() -> None:
     # ── daily_analytics — add items_sold index ───────────────────────────────
     # Speeds up the revenue-by-category aggregation query.
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS "
+        "CREATE INDEX IF NOT EXISTS "
         "idx_order_items_product_created "
         "ON order_items (product_id) "
     )

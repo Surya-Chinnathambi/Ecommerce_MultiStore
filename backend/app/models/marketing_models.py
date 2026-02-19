@@ -30,8 +30,8 @@ class PromotionalBanner(Base):
     description = Column(Text)
     image_url = Column(String(500))
     link_url = Column(String(500))
-    banner_type = Column(SQLEnum(BannerType), default=BannerType.PROMOTIONAL)
-    status = Column(SQLEnum(BannerStatus), default=BannerStatus.ACTIVE)
+    banner_type = Column(SQLEnum(BannerType, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=BannerType.PROMOTIONAL)
+    status = Column(SQLEnum(BannerStatus, values_callable=lambda obj: [e.value for e in obj], create_type=False), default=BannerStatus.ACTIVE)
     start_date = Column(DateTime, default=datetime.utcnow)
     end_date = Column(DateTime)
     display_order = Column(Integer, default=0)
@@ -162,3 +162,4 @@ class LoyaltyTransaction(Base):
 
     # Relationships
     loyalty_account = relationship("LoyaltyPoints", back_populates="transactions")
+
