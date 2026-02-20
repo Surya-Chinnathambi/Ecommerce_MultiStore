@@ -1,8 +1,15 @@
-ï»¿import { useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { authApi } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
-import { Mail, Lock, LogIn, ShoppingBag } from 'lucide-react'
+import { Mail, Lock, LogIn, Eye, EyeOff, ShoppingBag, Check, AlertCircle, ArrowRight } from 'lucide-react'
+
+const features = [
+  'Browse thousands of curated products',
+  'Real-time order tracking',
+  'Secure & fast checkout',
+  'Exclusive member-only deals',
+]
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -20,210 +27,162 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
-
     try {
       const response = await authApi.login(email, password)
       const { access_token, user } = response.data
-
       setAuth(access_token, user)
-
-      // Redirect based on user role
       if (user.role === 'admin' || user.role === 'super_admin') {
         navigate('/admin', { replace: true })
       } else {
         navigate(from, { replace: true })
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.')
+      setError(err.response?.data?.detail || 'Invalid email or password. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-theme-primary via-theme-primary to-theme-accent p-12 items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-black opacity-10"></div>
-        <div className="absolute top-0 left-0 w-64 h-64 bg-bg-primary opacity-5 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-bg-primary opacity-5 rounded-full translate-x-1/3 translate-y-1/3"></div>
+    <div className="min-h-screen flex bg-bg-secondary">
+      {/* -- Left panel — branding ----------------------------- */}
+      <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden items-center justify-center">
+        {/* Background */}
+        <div className="absolute inset-0 gradient-primary opacity-95" />
+        {/* Mesh pattern */}
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(255,255,255,0.08) 0%, transparent 50%)',
+        }} />
+        {/* Decorative circles */}
+        <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
 
-        <div className="relative z-10 text-white max-w-md">
-          <div className="flex items-center space-x-3 mb-8">
-            <ShoppingBag className="h-12 w-12" />
-            <h1 className="text-4xl font-bold">E-Commerce</h1>
+        <div className="relative z-10 max-w-md px-12 text-white">
+          <div className="flex items-center gap-3 mb-10">
+            <div className="h-11 w-11 rounded-[var(--radius-xl)] bg-white/20 border border-white/30 flex items-center justify-center">
+              <ShoppingBag className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-xl font-bold tracking-tight">E-Commerce</span>
           </div>
-          <h2 className="text-3xl font-bold mb-6">
-            Welcome Back!
+
+          <h2 className="text-4xl font-extrabold leading-tight mb-4 tracking-tight">
+            Welcome back to your store
           </h2>
-          <p className="text-blue-100 text-lg mb-8">
-            Sign in to access your account and continue your shopping experience.
+          <p className="text-white/70 text-lg leading-relaxed mb-10">
+            Sign in to manage orders, discover new products, and enjoy your personalized shopping experience.
           </p>
-          <div className="space-y-4">
-            <div className="flex items-start space-x-3">
-              <div className="mt-1 bg-theme-accent rounded-full p-1">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
-                </svg>
-              </div>
-              <p className="text-blue-100">Browse thousands of products</p>
-            </div>
-            <div className="flex items-start space-x-3">
-              <div className="mt-1 bg-theme-accent rounded-full p-1">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
-                </svg>
-              </div>
-              <p className="text-blue-100">Track your orders in real-time</p>
-            </div>
-            <div className="flex items-start space-x-3">
-              <div className="mt-1 bg-theme-accent rounded-full p-1">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
-                </svg>
-              </div>
-              <p className="text-blue-100">Secure and fast checkout</p>
-            </div>
-          </div>
+
+          <ul className="space-y-4">
+            {features.map(f => (
+              <li key={f} className="flex items-center gap-3 text-white/85 text-sm">
+                <span className="h-6 w-6 rounded-full bg-white/20 border border-white/30 flex items-center justify-center flex-shrink-0">
+                  <Check className="h-3.5 w-3.5 text-white" />
+                </span>
+                {f}
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 
-      {/* Right Side - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-bg-secondary">
-        <div className="max-w-md w-full">
-          {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center space-x-3 mb-8">
-            <ShoppingBag className="h-10 w-10 text-theme-primary" />
-            <h1 className="text-3xl font-bold text-text-primary">E-Commerce</h1>
+      {/* -- Right panel — form -------------------------------- */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        {/* Mobile logo */}
+        <div className="lg:hidden flex items-center gap-3 mb-10">
+          <ShoppingBag className="h-8 w-8 text-theme-primary" />
+          <span className="text-2xl font-bold text-text-primary">E-Commerce</span>
+        </div>
+
+        <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-text-primary mb-1.5">Sign in to your account</h1>
+            <p className="text-sm text-text-secondary">
+              Don't have an account?{' '}
+              <Link to={`/register${window.location.search}`} className="font-medium text-theme-primary hover:text-theme-primary-hover transition-colors">
+                Create one <ArrowRight className="inline h-3.5 w-3.5" />
+              </Link>
+            </p>
           </div>
 
-          <div className="bg-bg-primary rounded-2xl shadow-xl p-8 border border-border-color">
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold text-text-primary mb-2">
-                Sign In
-              </h2>
-              <p className="text-text-secondary">
-                Welcome back! Please enter your details.
-              </p>
+          {error && (
+            <div className="alert alert-error mb-6 animate-slide-down">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
+          )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4">
-                  <div className="flex items-start gap-3">
-                    <svg className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"></path>
-                    </svg>
-                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-text-primary mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-text-tertiary" />
-                  </div>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="input pl-10"
-                    placeholder="you@example.com"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-text-primary mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-text-tertiary" />
-                  </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input pl-10 pr-10"
-                    placeholder="Enter your password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-tertiary hover:text-text-secondary"
-                  >
-                    {showPassword ? (
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary btn-lg w-full"
-              >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Signing in...</span>
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="h-5 w-5" />
-                    <span>Sign In</span>
-                  </>
-                )}
-              </button>
-            </form>
-
-            <div className="mt-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="form-label">Email address</label>
               <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border-color"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-bg-primary text-text-tertiary">New to our platform?</span>
-                </div>
-              </div>
-
-              <div className="mt-6 text-center">
-                <Link
-                  to={`/register${window.location.search}`}
-                  className="font-medium text-theme-primary hover:text-theme-primary-hover transition duration-150 ease-in-out"
-                >
-                  Create a new account â†’
-                </Link>
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary pointer-events-none" />
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className={`input pl-10 ${error ? 'input-error' : ''}`}
+                />
               </div>
             </div>
-          </div>
 
-          <p className="mt-8 text-center text-xs text-text-tertiary">
-            By signing in, you agree to our Terms of Service and Privacy Policy
+            {/* Password */}
+            <div>
+              <label htmlFor="password" className="form-label">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary pointer-events-none" />
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Your password"
+                  className={`input pl-10 pr-11 ${error ? 'input-error' : ''}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-text-tertiary hover:text-text-secondary transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary w-full btn-lg mt-2"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <LogIn className="h-4 w-4" />
+                  Sign in
+                </>
+              )}
+            </button>
+          </form>
+
+          <p className="mt-8 text-center text-xs text-text-quaternary">
+            By signing in, you agree to our{' '}
+            <Link to="/terms" className="underline underline-offset-2 hover:text-text-tertiary">Terms</Link>
+            {' '}and{' '}
+            <Link to="/privacy" className="underline underline-offset-2 hover:text-text-tertiary">Privacy Policy</Link>
           </p>
         </div>
       </div>

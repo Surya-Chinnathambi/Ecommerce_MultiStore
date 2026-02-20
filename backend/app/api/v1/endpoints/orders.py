@@ -5,7 +5,7 @@ Like Amazon/Flipkart order management system
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_
 from typing import Optional, List
 from datetime import datetime
 
@@ -187,16 +187,23 @@ async def get_customer_orders(
 ):
     """
     Get orders for logged-in customer (like Amazon 'My Orders' page)
-    Filter by customer email AND store_id for proper multi-tenant isolation
+    Filter by user_id (preferred) OR customer email, scoped to the store.
     """
     # Get store_id from request state (set by TenantMiddleware)
     store_id = request.state.store_id
     
-    # Query orders by customer email AND store_id (multi-tenant isolation)
+    # Build identity condition: match by user_id when available (most reliable)
+    # OR by email for orders placed before user_id was stored.
+    identity_condition = or_(
+        Order.user_id == current_user.id,
+        Order.customer_email == current_user.email
+    )
+
+    # Query orders scoped to this store
     query = db.query(Order).options(
         joinedload(Order.items).joinedload(OrderItem.product)
     ).filter(
-        Order.customer_email == current_user.email,
+        identity_condition,
         Order.store_id == store_id
     )
     

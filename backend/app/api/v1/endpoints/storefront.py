@@ -13,7 +13,7 @@ import random
 import string
 
 from app.core.database import get_read_db, get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_optional_user
 from app.models.auth_models import User
 from app.schemas.schemas import (
     ProductResponse, CategoryResponse, StoreResponse, APIResponse
@@ -332,7 +332,7 @@ async def get_featured_products(
 async def create_order(
     request: Request,
     order_data: Dict[str, Any] = Body(...),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -463,12 +463,20 @@ async def create_order(
     # Generate order number
     order_number = f"ORD-{''.join(random.choices(string.ascii_uppercase + string.digits, k=8))}"
     
+    # Resolve customer email — prefer explicit form value, fall back to logged-in user email
+    customer_email = (order_data.get('customer_email') or '').strip() or (current_user.email if current_user else None)
+
+    payment_method = order_data.get('payment_method', 'COD').upper()
+    # COD orders are immediately accounted for; online orders start as pending
+    initial_payment_status = PaymentStatus.COD if payment_method == 'COD' else PaymentStatus.PENDING
+
     # Create order
     order = Order(
         store_id=store_id,
         order_number=order_number,
+        user_id=current_user.id if current_user else None,
         customer_name=order_data.get('customer_name'),
-        customer_email=order_data.get('customer_email'),
+        customer_email=customer_email,
         customer_phone=order_data.get('customer_phone'),
         delivery_address=order_data.get('delivery_address'),
         delivery_city=order_data.get('delivery_city'),
@@ -476,13 +484,13 @@ async def create_order(
         delivery_pincode=order_data.get('delivery_pincode'),
         delivery_landmark=order_data.get('delivery_landmark'),
         notes=order_data.get('notes'),
-        payment_method=order_data.get('payment_method', 'COD'),
+        payment_method=payment_method,
         subtotal=subtotal,
         tax_amount=tax,
         delivery_charge=shipping_cost,
         total_amount=total,
         order_status=OrderStatus.PENDING,
-        payment_status=PaymentStatus.PENDING
+        payment_status=initial_payment_status
     )
     
     db.add(order)

@@ -112,19 +112,19 @@ export default function AdminAdsPage() {
     const { data: banners = [], isLoading: bannersLoading } = useQuery<Banner[]>({
         queryKey: ['admin-banners'],
         queryFn: () =>
-            api.get(`/banners?store_id=${storeId()}&include_inactive=true`).then(r => r.data.data ?? r.data),
+            api.get(`/marketing/banners?store_id=${storeId()}&include_inactive=true`).then(r => r.data.data ?? r.data),
     })
 
     const { data: flashSales = [], isLoading: flashLoading } = useQuery<FlashSale[]>({
         queryKey: ['admin-flash-sales'],
         queryFn: () =>
-            api.get(`/flash-sales?store_id=${storeId()}&active_only=false`).then(r => r.data.data ?? r.data),
+            api.get(`/marketing/flash-sales?store_id=${storeId()}&active_only=false`).then(r => r.data.data ?? r.data),
     })
 
     // ── Mutations ──────────────────────────────────────────────────────────────
 
     const createBanner = useMutation({
-        mutationFn: (data: typeof emptyBanner) => api.post('/banners', data),
+        mutationFn: (data: typeof emptyBanner) => api.post('/marketing/banners', data),
         onSuccess: () => {
             toast.success('Banner created!')
             qc.invalidateQueries({ queryKey: ['admin-banners'] })
@@ -135,7 +135,7 @@ export default function AdminAdsPage() {
     })
 
     const deleteBanner = useMutation({
-        mutationFn: (id: string) => api.delete(`/banners/${id}`),
+        mutationFn: (id: string) => api.delete(`/marketing/banners/${id}`),
         onSuccess: () => {
             toast.success('Banner deleted')
             qc.invalidateQueries({ queryKey: ['admin-banners'] })
@@ -145,7 +145,7 @@ export default function AdminAdsPage() {
     })
 
     const createFlash = useMutation({
-        mutationFn: (data: typeof emptyFlash) => api.post('/flash-sales', data),
+        mutationFn: (data: typeof emptyFlash) => api.post('/marketing/flash-sales', data),
         onSuccess: () => {
             toast.success('Flash sale created!')
             qc.invalidateQueries({ queryKey: ['admin-flash-sales'] })
@@ -156,7 +156,7 @@ export default function AdminAdsPage() {
     })
 
     const deactivateFlash = useMutation({
-        mutationFn: (id: string) => api.patch(`/flash-sales/${id}`, { is_active: false }),
+        mutationFn: (id: string) => api.patch(`/marketing/flash-sales/${id}`, { is_active: false }),
         onSuccess: () => {
             toast.success('Flash sale deactivated')
             qc.invalidateQueries({ queryKey: ['admin-flash-sales'] })
@@ -357,8 +357,8 @@ export default function AdminAdsPage() {
                                 key={tmpl.id}
                                 onClick={() => setSelectedTemplate(selectedTemplate === tmpl.id ? null : tmpl.id)}
                                 className={`card p-0 overflow-hidden text-left transition-all hover:shadow-lg ${selectedTemplate === tmpl.id
-                                        ? `border-2 ${tmpl.cardBorder} shadow-lg`
-                                        : 'border-2 border-transparent'
+                                    ? `border-2 ${tmpl.cardBorder} shadow-lg`
+                                    : 'border-2 border-transparent'
                                     }`}
                             >
                                 <div className={`${tmpl.headerBg} h-20 flex items-end justify-between p-3`}>

@@ -24,8 +24,12 @@ export default function PromotionalBanner() {
     const fetchBanners = async () => {
         try {
             const response = await marketingApi.getBanners({ banner_type: 'hero' })
-            if (response.data.banners && response.data.banners.length > 0) {
-                setBanners(response.data.banners)
+            // Backend returns a plain array of banners
+            const list: Banner[] = Array.isArray(response.data)
+                ? response.data
+                : (response.data?.data ?? response.data?.banners ?? [])
+            if (list.length > 0) {
+                setBanners(list)
             }
         } catch (error) {
             console.error('Error fetching banners:', error)

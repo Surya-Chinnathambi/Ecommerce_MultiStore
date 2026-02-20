@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 from typing import List, Optional
@@ -151,23 +151,31 @@ def generate_referral_code() -> str:
 def get_active_banners(
     banner_type: Optional[str] = None,
     store_id: str = None,
+    include_inactive: bool = False,
     db: Session = Depends(get_db)
 ):
-    """Get all active promotional banners"""
+    """Get promotional banners. Pass include_inactive=true for admin view."""
     if not store_id:
         return []  # Return empty list if no store_id provided
     
     store = get_store_from_header(db, store_id)
     now = datetime.utcnow()
     
-    query = db.query(PromotionalBanner).filter(
-        and_(
-            PromotionalBanner.store_id == store.id,
-            PromotionalBanner.status == BannerStatus.ACTIVE,
-            PromotionalBanner.start_date <= now,
-            (PromotionalBanner.end_date.is_(None)) | (PromotionalBanner.end_date >= now)
+    if include_inactive:
+        # Admin view: return all banners for the store regardless of status/dates
+        query = db.query(PromotionalBanner).filter(
+            PromotionalBanner.store_id == store.id
         )
-    )
+    else:
+        # Public view: only active, in-date banners
+        query = db.query(PromotionalBanner).filter(
+            and_(
+                PromotionalBanner.store_id == store.id,
+                PromotionalBanner.status == BannerStatus.ACTIVE,
+                PromotionalBanner.start_date <= now,
+                (PromotionalBanner.end_date.is_(None)) | (PromotionalBanner.end_date >= now)
+            )
+        )
     
     if banner_type:
         query = query.filter(PromotionalBanner.banner_type == banner_type)
@@ -199,6 +207,29 @@ def create_banner(
     db.commit()
     db.refresh(new_banner)
     return new_banner
+
+
+@router.delete("/banners/{banner_id}")
+def delete_banner(
+    banner_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a promotional banner (Admin only)"""
+    if current_user.role not in ["admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    banner = db.query(PromotionalBanner).filter(PromotionalBanner.id == banner_id).first()
+    if not banner:
+        raise HTTPException(status_code=404, detail="Banner not found")
+
+    # Ensure admin can only delete banners from their own store
+    if current_user.role != "super_admin" and str(banner.store_id) != str(current_user.store_id):
+        raise HTTPException(status_code=403, detail="You can only delete banners for your own store")
+
+    db.delete(banner)
+    db.commit()
+    return {"message": "Banner deleted successfully"}
 
 
 @router.post("/banners/{banner_id}/click")
@@ -272,6 +303,34 @@ def get_flash_sales(
         result.append(sale_dict)
     
     return result
+
+
+@router.patch("/flash-sales/{flash_sale_id}")
+def update_flash_sale(
+    flash_sale_id: str,
+    update_data: dict = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update flash sale fields (Admin only) — used to deactivate a running sale"""
+    if current_user.role not in ["admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    flash_sale = db.query(FlashSale).filter(FlashSale.id == flash_sale_id).first()
+    if not flash_sale:
+        raise HTTPException(status_code=404, detail="Flash sale not found")
+
+    if current_user.role != "super_admin" and str(flash_sale.store_id) != str(current_user.store_id):
+        raise HTTPException(status_code=403, detail="You can only update flash sales for your own store")
+
+    allowed_fields = {"is_active", "end_time", "max_quantity", "name", "description"}
+    for field, value in update_data.items():
+        if field in allowed_fields:
+            setattr(flash_sale, field, value)
+
+    db.commit()
+    db.refresh(flash_sale)
+    return {"message": "Flash sale updated", "id": str(flash_sale.id), "is_active": flash_sale.is_active}
 
 
 @router.post("/flash-sales", response_model=FlashSaleResponse)

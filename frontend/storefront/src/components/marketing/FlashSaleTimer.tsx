@@ -6,17 +6,18 @@ import { Link } from 'react-router-dom'
 interface FlashSale {
     id: string
     product_id: string
-    product: {
+    product?: {
         id: string
         name: string
-        image_url: string
-        price: number
-    }
+        thumbnail?: string
+        sku: string
+    } | null
+    original_price: number
     sale_price: number
     discount_percent: number
     start_time: string
     end_time: string
-    max_quantity: number
+    max_quantity?: number
     sold_quantity: number
 }
 
@@ -40,9 +41,11 @@ export default function FlashSaleTimer() {
     const fetchFlashSales = async () => {
         try {
             const response = await marketingApi.getFlashSales({ active_only: true })
-            if (response.data.flash_sales) {
-                setFlashSales(response.data.flash_sales)
-            }
+            // Backend returns a plain array of flash sales
+            const list: FlashSale[] = Array.isArray(response.data)
+                ? response.data
+                : (response.data?.data ?? response.data?.flash_sales ?? [])
+            setFlashSales(list)
         } catch (error) {
             console.error('Error fetching flash sales:', error)
         }
@@ -90,7 +93,9 @@ export default function FlashSaleTimer() {
                     {flashSales.map((sale) => {
                         const time = timeLeft[sale.id] || { days: 0, hours: 0, minutes: 0, seconds: 0 }
                         const isUrgent = time.days === 0 && time.hours < 1
-                        const soldPercentage = (sale.sold_quantity / sale.max_quantity) * 100
+                        const soldPercentage = sale.max_quantity
+                            ? (sale.sold_quantity / sale.max_quantity) * 100
+                            : 0
 
                         return (
                             <Link
@@ -101,8 +106,8 @@ export default function FlashSaleTimer() {
                                 {/* Product Image */}
                                 <div className="relative">
                                     <img
-                                        src={sale.product.image_url}
-                                        alt={sale.product.name}
+                                        src={sale.product?.thumbnail ?? 'https://placehold.co/400x300?text=No+Image'}
+                                        alt={sale.product?.name ?? 'Flash Sale'}
                                         className="w-full h-48 object-cover"
                                     />
                                     <div className="absolute top-2 right-2 bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1 rounded-full font-bold text-sm">
@@ -113,7 +118,7 @@ export default function FlashSaleTimer() {
                                 {/* Product Info */}
                                 <div className="p-4">
                                     <h3 className="font-semibold text-lg mb-2 line-clamp-2 text-text-primary">
-                                        {sale.product.name}
+                                        {sale.product?.name ?? 'Flash Sale Item'}
                                     </h3>
 
                                     {/* Prices */}
@@ -122,23 +127,25 @@ export default function FlashSaleTimer() {
                                             ₹{sale.sale_price.toFixed(2)}
                                         </span>
                                         <span className="text-text-tertiary line-through">
-                                            ₹{sale.product.price.toFixed(2)}
+                                            ₹{sale.original_price.toFixed(2)}
                                         </span>
                                     </div>
 
                                     {/* Stock Progress */}
-                                    <div className="mb-3">
-                                        <div className="flex justify-between text-sm text-text-secondary mb-1">
-                                            <span>Sold: {sale.sold_quantity}/{sale.max_quantity}</span>
-                                            <span>{soldPercentage.toFixed(0)}%</span>
+                                    {sale.max_quantity && (
+                                        <div className="mb-3">
+                                            <div className="flex justify-between text-sm text-text-secondary mb-1">
+                                                <span>Sold: {sale.sold_quantity}/{sale.max_quantity}</span>
+                                                <span>{soldPercentage.toFixed(0)}%</span>
+                                            </div>
+                                            <progress
+                                                className="flash-sale-progress w-full h-2"
+                                                value={Math.min(100, soldPercentage)}
+                                                max={100}
+                                                aria-label="Sale stock progress"
+                                            />
                                         </div>
-                                        <progress
-                                            className="flash-sale-progress w-full h-2"
-                                            value={Math.min(100, soldPercentage)}
-                                            max={100}
-                                            aria-label="Sale stock progress"
-                                        />
-                                    </div>
+                                    )}
 
                                     {/* Countdown Timer */}
                                     <div className={`flex items-center gap-2 p-3 rounded-lg ${isUrgent ? 'bg-red-500/10' : 'bg-bg-tertiary'

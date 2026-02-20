@@ -31,7 +31,7 @@ class OrderStatus(str, enum.Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
     PROCESSING = "processing"
-    READY = "ready"
+    SHIPPED = "shipped"     # replaces legacy "ready" value
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
 
