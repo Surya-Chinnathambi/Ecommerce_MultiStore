@@ -86,7 +86,7 @@ async def create_review(
     db.refresh(new_review)
     
     # Attach user name
-    response = ReviewResponseSchema.from_orm(new_review)
+    response = ReviewResponseSchema.model_validate(new_review)
     response.user_name = current_user.full_name
     
     return response
@@ -97,8 +97,8 @@ async def get_product_reviews(
     product_id: UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    sort_by: str = Query("created_at", regex="^(created_at|rating|helpful_count)$"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$"),
+    sort_by: str = Query("created_at", pattern="^(created_at|rating|helpful_count)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     verified_only: bool = Query(False),
     min_rating: Optional[int] = Query(None, ge=1, le=5),
     store_id: UUID = Depends(get_current_store_id),
@@ -132,7 +132,7 @@ async def get_product_reviews(
     # Attach user names
     result = []
     for review in reviews:
-        review_dict = ReviewResponseSchema.from_orm(review)
+        review_dict = ReviewResponseSchema.model_validate(review)
         user = db.query(User).filter(User.id == review.user_id).first()
         if user:
             review_dict.user_name = user.full_name
@@ -208,7 +208,7 @@ async def update_review(
         )
     
     # Update fields
-    update_data = review_data.dict(exclude_unset=True)
+    update_data = review_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(review, field, value)
     
@@ -217,7 +217,7 @@ async def update_review(
     db.commit()
     db.refresh(review)
     
-    response = ReviewResponseSchema.from_orm(review)
+    response = ReviewResponseSchema.model_validate(review)
     response.user_name = current_user.full_name
     
     return response
@@ -353,7 +353,7 @@ async def create_review_response(
     db.commit()
     db.refresh(new_response)
     
-    return StoreReviewResponse.from_orm(new_response)
+    return StoreReviewResponse.model_validate(new_response)
 
 
 @router.get("/my-reviews", response_model=List[ReviewResponseSchema])
@@ -371,7 +371,7 @@ async def get_my_reviews(
     
     result = []
     for review in reviews:
-        review_dict = ReviewResponseSchema.from_orm(review)
+        review_dict = ReviewResponseSchema.model_validate(review)
         review_dict.user_name = current_user.full_name
         result.append(review_dict)
     

@@ -285,7 +285,7 @@ async def get_inventory_alerts(
     # Attach product details
     result = []
     for alert in alerts:
-        alert_dict = InventoryAlertResponse.from_orm(alert)
+        alert_dict = InventoryAlertResponse.model_validate(alert)
         product = db.query(Product).filter(Product.id == alert.product_id).first()
         if product:
             alert_dict.product_name = product.name
@@ -313,7 +313,7 @@ async def create_inventory_alert(
     ).first()
     
     if existing:
-        return InventoryAlertResponse.from_orm(existing)
+        return InventoryAlertResponse.model_validate(existing)
     
     new_alert = InventoryAlert(
         product_id=alert_data.product_id,
@@ -328,7 +328,7 @@ async def create_inventory_alert(
     db.commit()
     db.refresh(new_alert)
     
-    return InventoryAlertResponse.from_orm(new_alert)
+    return InventoryAlertResponse.model_validate(new_alert)
 
 
 @router.put("/inventory-alerts/{alert_id}/resolve", response_model=InventoryAlertResponse)
@@ -363,7 +363,7 @@ async def resolve_inventory_alert(
     db.commit()
     db.refresh(alert)
     
-    return InventoryAlertResponse.from_orm(alert)
+    return InventoryAlertResponse.model_validate(alert)
 
 
 @router.get("/product/{product_id}/analytics", response_model=List[ProductAnalyticsResponse])
@@ -391,7 +391,7 @@ async def get_product_analytics(
         ProductAnalytics.date >= start_date
     ).order_by(ProductAnalytics.date).all()
     
-    return [ProductAnalyticsResponse.from_orm(a) for a in analytics]
+    return [ProductAnalyticsResponse.model_validate(a) for a in analytics]
 
 
 # ── Revenue by Category ───────────────────────────────────────────────────────

@@ -105,7 +105,7 @@ class SyncStats(BaseModel):
 
 class InvoiceExportRequest(BaseModel):
     """Export invoice request"""
-    order_ids: List[UUID] = Field(..., min_items=1)
+    order_ids: List[UUID] = Field(..., min_length=1)
     integration_id: Optional[UUID] = None
     format: str = Field("json", pattern="^(json|xml|csv|pdf)$")
 

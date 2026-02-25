@@ -76,8 +76,8 @@ class TestTokenCreation:
 
         raw_live, _ = generate_api_key(is_test=False)
         raw_test, _ = generate_api_key(is_test=True)
-        assert raw_live.startswith("sk_live_")
-        assert raw_test.startswith("sk_test_")
+        assert raw_live.startswith("ec_live_")
+        assert raw_test.startswith("ec_test_")
 
     @pytest.mark.unit
     def test_generate_api_key_hash_matches(self):
@@ -111,15 +111,15 @@ class TestTokenBlacklisting:
         from app.core import security as sec_module
 
         mock_redis = MagicMock()
-        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.setex = AsyncMock(return_value=True)
 
         future = datetime.utcnow() + timedelta(minutes=30)
 
-        with patch.object(sec_module, "redis_client", mock_redis):
+        with patch("app.core.redis.redis_client", mock_redis):
             await sec_module.blacklist_token("test-jti-123", future)
 
-        mock_redis.set.assert_called_once()
-        call_kwargs = mock_redis.set.call_args
+        mock_redis.setex.assert_called_once()
+        call_kwargs = mock_redis.setex.call_args
         # Key should contain the JTI
         assert "test-jti-123" in call_kwargs[0][0]
 
@@ -132,7 +132,7 @@ class TestTokenBlacklisting:
         mock_redis = MagicMock()
         mock_redis.exists = AsyncMock(return_value=True)
 
-        with patch.object(sec_module, "redis_client", mock_redis):
+        with patch("app.core.redis.redis_client", mock_redis):
             result = await sec_module.is_token_blacklisted("blacklisted-jti")
 
         assert result is True
@@ -146,7 +146,7 @@ class TestTokenBlacklisting:
         mock_redis = MagicMock()
         mock_redis.exists = AsyncMock(return_value=False)
 
-        with patch.object(sec_module, "redis_client", mock_redis):
+        with patch("app.core.redis.redis_client", mock_redis):
             result = await sec_module.is_token_blacklisted("unknown-jti")
 
         assert result is False
@@ -166,9 +166,9 @@ class TestAccountLockout:
 
         mock_redis = MagicMock()
         mock_redis.exists = AsyncMock(return_value=True)
-        mock_redis.get = AsyncMock(return_value="300")  # 5 min remaining
+        mock_redis.ttl = AsyncMock(return_value=300)  # 5 min remaining
 
-        with patch.object(sec_module, "redis_client", mock_redis):
+        with patch("app.core.redis.redis_client", mock_redis):
             with pytest.raises(HTTPException) as exc_info:
                 await sec_module.check_account_locked("locked@example.com")
 
@@ -183,7 +183,7 @@ class TestAccountLockout:
         mock_redis = MagicMock()
         mock_redis.exists = AsyncMock(return_value=False)
 
-        with patch.object(sec_module, "redis_client", mock_redis):
+        with patch("app.core.redis.redis_client", mock_redis):
             # Should not raise
             await sec_module.check_account_locked("ok@example.com")
 
@@ -194,13 +194,15 @@ class TestAccountLockout:
         from app.core import security as sec_module
 
         mock_redis = MagicMock()
-        mock_redis.increment = AsyncMock(return_value=1)
-        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.incr = AsyncMock(return_value=1)
+        mock_redis.expire = AsyncMock(return_value=True)
+        mock_redis.setex = AsyncMock(return_value=True)
+        mock_redis.delete = AsyncMock(return_value=1)
 
-        with patch.object(sec_module, "redis_client", mock_redis):
+        with patch("app.core.redis.redis_client", mock_redis):
             await sec_module.record_failed_login("fail@example.com")
 
-        mock_redis.increment.assert_called_once()
+        mock_redis.incr.assert_called_once()
 
     @pytest.mark.asyncio
     @pytest.mark.unit
@@ -211,7 +213,7 @@ class TestAccountLockout:
         mock_redis = MagicMock()
         mock_redis.delete = AsyncMock(return_value=2)
 
-        with patch.object(sec_module, "redis_client", mock_redis):
+        with patch("app.core.redis.redis_client", mock_redis):
             await sec_module.clear_failed_logins("success@example.com")
 
         mock_redis.delete.assert_called_once()

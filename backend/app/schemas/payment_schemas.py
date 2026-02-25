@@ -2,7 +2,7 @@
 Payment Pydantic Schemas
 Request/Response models for payment operations
 """
-from pydantic import BaseModel, Field, validator, EmailStr
+from pydantic import BaseModel, Field, field_validator, EmailStr
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from uuid import UUID
@@ -46,7 +46,7 @@ class PaymentIntentCreate(BaseModel):
     meta_data: Optional[Dict[str, Any]] = {}
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "order_id": "550e8400-e29b-41d4-a716-446655440000",
                 "payment_gateway": "stripe",
@@ -63,7 +63,7 @@ class PaymentConfirm(BaseModel):
     gateway_signature: Optional[str] = None  # For Razorpay signature verification
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "payment_id": "550e8400-e29b-41d4-a716-446655440000",
                 "gateway_payment_id": "pi_1234567890",
@@ -79,14 +79,15 @@ class RefundCreate(BaseModel):
     reason: str = Field(..., min_length=10, max_length=500)
     meta_data: Optional[Dict[str, Any]] = {}
     
-    @validator('amount')
+    @field_validator('amount')
+    @classmethod
     def validate_amount(cls, v):
         if v is not None and v <= 0:
             raise ValueError('Amount must be positive')
         return v
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "payment_id": "550e8400-e29b-41d4-a716-446655440000",
                 "amount": 299.99,
@@ -165,7 +166,7 @@ class PaymentIntentResponse(BaseModel):
     customer_phone: str
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "payment_id": "550e8400-e29b-41d4-a716-446655440000",
                 "client_secret": "pi_1234567890_secret_abc123",
@@ -236,7 +237,7 @@ class PaymentMethodInfo(BaseModel):
     transaction_fee_percent: Optional[float]
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "gateway": "razorpay",
                 "name": "Razorpay",
@@ -270,7 +271,7 @@ class PaymentStats(BaseModel):
     success_rate: float  # Percentage
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "total_payments": 150,
                 "total_amount": 125000.50,

@@ -15,6 +15,7 @@ import pytest
 import asyncio
 from typing import Generator
 from unittest.mock import AsyncMock, patch, MagicMock
+import sqlalchemy as sa
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
@@ -53,10 +54,30 @@ def _get_test_db():
 
 @pytest.fixture(scope="session")
 def setup_database():
-    """Create all tables once per test session; drop them on teardown."""
-    Base.metadata.create_all(bind=test_engine)
+    """
+    Run Alembic migrations once per test session so the test DB has the exact
+    same schema (including enum types) as production.  Tear down all tables
+    when the session ends so the next run starts clean.
+    """
+    import subprocess
+    import os
+
+    # Run 'alembic upgrade head' targeting the test DB
+    env = os.environ.copy()
+    env["DATABASE_URL"] = TEST_DATABASE_URL
+    subprocess.run(
+        ["alembic", "upgrade", "head"],
+        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        env=env,
+        check=True,
+    )
     yield
-    Base.metadata.drop_all(bind=test_engine)
+    # Teardown: drop all tables and enum types via SQLAlchemy + raw SQL
+    with test_engine.connect() as conn:
+        # Drop tables in dependency order
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+        conn.commit()
 
 
 # ── Per-function isolated DB session ─────────────────────────────────────────
@@ -93,6 +114,13 @@ def mock_redis():
         mock_rc.increment = AsyncMock(return_value=1)
         mock_rc.exists = AsyncMock(return_value=False)
         mock_rc.ping = AsyncMock(return_value=True)
+        # Additional methods used by security/auth helpers
+        mock_rc.incr = AsyncMock(return_value=1)
+        mock_rc.expire = AsyncMock(return_value=True)
+        mock_rc.setex = AsyncMock(return_value=True)
+        mock_rc.ttl = AsyncMock(return_value=-1)
+        mock_rc.blacklist_token = AsyncMock(return_value=True)
+        mock_rc.is_blacklisted = AsyncMock(return_value=False)
         yield mock_rc
 
 
@@ -101,10 +129,28 @@ def mock_redis():
 @pytest.fixture(scope="function")
 def client(db_session) -> Generator:
     """Test client with both DB dependencies overridden."""
+    from app.middleware.tenant import TenantMiddleware
+    from app.models.models import Store
+
+    async def _get_store_by_id(self_ref, store_id: str):
+        """Look up store in the test DB session instead of prod SessionLocal."""
+        try:
+            from uuid import UUID
+            store = db_session.query(Store).filter(Store.id == UUID(store_id)).first()
+            return store
+        except Exception:
+            return None
+
+    async def _get_default_store(self_ref):
+        """Return first active store from the test DB."""
+        return db_session.query(Store).filter(Store.is_active == True).first()
+
     app.dependency_overrides[get_db] = lambda: db_session
     app.dependency_overrides[get_read_db] = lambda: db_session
-    with TestClient(app, raise_server_exceptions=True) as c:
-        yield c
+    with patch.object(TenantMiddleware, "get_store_by_id", _get_store_by_id), \
+         patch.object(TenantMiddleware, "get_default_store", _get_default_store):
+        with TestClient(app, raise_server_exceptions=True) as c:
+            yield c
     app.dependency_overrides.clear()
 
 

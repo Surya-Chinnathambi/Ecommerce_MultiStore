@@ -113,7 +113,7 @@ async def list_categories(
         )
     ).order_by(Category.display_order.asc(), Category.name.asc()).all()
     
-    categories_data = [CategoryResponse.from_orm(c).dict() for c in categories]
+    categories_data = [CategoryResponse.model_validate(c).model_dump(mode='json') for c in categories]
     
     # Cache for 30 minutes
     await redis_client.set_json(

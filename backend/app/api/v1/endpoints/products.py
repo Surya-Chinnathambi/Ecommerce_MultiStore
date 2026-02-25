@@ -146,7 +146,7 @@ async def list_products(
     # Format products with ratings
     products_data = []
     for product, avg_rating, review_count in results:
-        product_dict = ProductResponse.from_orm(product).dict()
+        product_dict = ProductResponse.model_validate(product).model_dump(mode='json')
         product_dict['average_rating'] = round(float(avg_rating), 2) if avg_rating else 0.0
         product_dict['review_count'] = review_count
         products_data.append(product_dict)
@@ -204,7 +204,7 @@ async def get_product(
         )
     
     # Cache result
-    product_data = ProductResponse.from_orm(product).dict()
+    product_data = ProductResponse.model_validate(product).model_dump(mode='json')
     await redis_client.set_json(
         cache_key,
         product_data,
@@ -294,7 +294,7 @@ async def list_products_by_category(
     return APIResponse(
         success=True,
         data={
-            "products": [ProductResponse.from_orm(p).dict() for p in products],
+            "products": [ProductResponse.model_validate(p).model_dump(mode='json') for p in products],
             "total": total,
             "page": page,
             "per_page": per_page
@@ -384,7 +384,7 @@ async def create_product(
 
     return APIResponse(
         success=True,
-        data=ProductResponse.from_orm(product).dict(),
+        data=ProductResponse.model_validate(product).model_dump(mode='json'),
         message="Product created successfully"
     )
 
@@ -416,7 +416,7 @@ async def update_product(
             raise HTTPException(status_code=403, detail="You can only manage your own store's products")
 
     # Apply only provided fields
-    update_data = updates.dict(exclude_unset=True)
+    update_data = updates.model_dump(exclude_unset=True)
 
     if "category_id" in update_data and update_data["category_id"]:
         cat = db.query(Category).filter(
@@ -452,7 +452,7 @@ async def update_product(
 
     return APIResponse(
         success=True,
-        data=ProductResponse.from_orm(product).dict(),
+        data=ProductResponse.model_validate(product).model_dump(mode='json'),
         message="Product updated successfully"
     )
 

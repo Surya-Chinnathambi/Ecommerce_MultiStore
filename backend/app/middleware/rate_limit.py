@@ -2,7 +2,7 @@
 Rate Limiting Middleware
 Implements per-store and per-IP rate limiting
 """
-from fastapi import Request, HTTPException, status
+from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 import time
 import logging
@@ -34,7 +34,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             # Get identifier (IP or store_id)
             identifier = self.get_identifier(request)
             
-            # Check rate limit
+            # Check rate limit BEFORE processing the request
             allowed, remaining, reset_time = await self.check_rate_limit(
                 identifier,
                 request.url.path,
@@ -42,22 +42,33 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 window
             )
             
-            # Add rate limit headers
+            # Return 429 immediately — do NOT call call_next when blocked
+            if not allowed:
+                from starlette.responses import JSONResponse as _JSONResponse
+                retry_after = max(0, reset_time - int(time.time()))
+                return _JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={
+                        "success": False,
+                        "error": {
+                            "code": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many requests. Please slow down.",
+                            "retry_after": retry_after,
+                        },
+                    },
+                    headers={
+                        "X-RateLimit-Limit": str(limit),
+                        "X-RateLimit-Remaining": "0",
+                        "X-RateLimit-Reset": str(reset_time),
+                        "Retry-After": str(retry_after),
+                    },
+                )
+            
+            # Allowed — process the request then attach headers
             response = await call_next(request)
             response.headers["X-RateLimit-Limit"] = str(limit)
             response.headers["X-RateLimit-Remaining"] = str(remaining)
             response.headers["X-RateLimit-Reset"] = str(reset_time)
-            
-            if not allowed:
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail={
-                        "error": "RATE_LIMIT_EXCEEDED",
-                        "message": "Too many requests. Please try again later.",
-                        "retry_after": reset_time - int(time.time())
-                    }
-                )
-            
             return response
         else:
             return await call_next(request)

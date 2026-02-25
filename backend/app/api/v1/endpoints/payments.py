@@ -187,7 +187,7 @@ async def get_payment(
                 detail="Not authorized to view this payment"
             )
     
-    return PaymentResponse.from_orm(payment)
+    return PaymentResponse.model_validate(payment)
 
 
 @router.get("/order/{order_id}", response_model=List[PaymentResponse])
@@ -217,7 +217,7 @@ async def get_order_payments(
             )
     
     payments = db.query(Payment).filter(Payment.order_id == order_id).all()
-    return [PaymentResponse.from_orm(p) for p in payments]
+    return [PaymentResponse.model_validate(p) for p in payments]
 
 
 @router.post("/refund", response_model=RefundResponse, status_code=status.HTTP_201_CREATED)
@@ -252,7 +252,7 @@ async def create_refund(
         
         # Fetch and return the refund
         refund = db.query(Refund).filter(Refund.id == result['refund_id']).first()
-        return RefundResponse.from_orm(refund)
+        return RefundResponse.model_validate(refund)
         
     except ValueError as e:
         raise HTTPException(
@@ -288,7 +288,7 @@ async def get_payment_refunds(
         )
     
     refunds = db.query(Refund).filter(Refund.payment_id == payment_id).all()
-    return [RefundResponse.from_orm(r) for r in refunds]
+    return [RefundResponse.model_validate(r) for r in refunds]
 
 
 @router.get("/stats", response_model=PaymentStats)

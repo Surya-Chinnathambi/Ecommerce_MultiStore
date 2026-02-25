@@ -185,7 +185,7 @@ class PaymentService:
             raise ValueError("Payment not found")
         
         if payment.status == PaymentStatus.COMPLETED:
-            return PaymentResponse.from_orm(payment)
+            return PaymentResponse.model_validate(payment)
         
         # Verify payment based on gateway
         if payment.payment_gateway == PaymentGateway.STRIPE:
@@ -282,7 +282,7 @@ class PaymentService:
         db.commit()
         db.refresh(payment)
         
-        return PaymentResponse.from_orm(payment)
+        return PaymentResponse.model_validate(payment)
     
     async def create_refund(
         self,

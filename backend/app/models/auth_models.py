@@ -54,6 +54,17 @@ class User(Base):
     def __repr__(self):
         return f"<User {self.email} - {self.role}>"
 
+    # ── Convenience role-check properties ─────────────────────────────────────
+    @property
+    def is_admin(self) -> bool:
+        """True for both ADMIN and SUPER_ADMIN roles."""
+        return self.role in (UserRole.ADMIN, UserRole.SUPER_ADMIN)
+
+    @property
+    def is_superuser(self) -> bool:
+        """True only for SUPER_ADMIN role."""
+        return self.role == UserRole.SUPER_ADMIN
+
 
 class Address(Base):
     __tablename__ = "addresses"

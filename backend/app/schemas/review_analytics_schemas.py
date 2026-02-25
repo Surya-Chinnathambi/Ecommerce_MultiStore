@@ -1,7 +1,7 @@
 """
 Pydantic schemas for reviews and analytics
 """
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime, date
 from uuid import UUID
@@ -200,10 +200,11 @@ class ProductSearchParams(BaseModel):
     page: int = Field(1, ge=1)
     per_page: int = Field(20, ge=1, le=100)
 
-    @validator('max_price')
-    def max_price_must_be_greater_than_min(cls, v, values):
-        if v is not None and 'min_price' in values and values['min_price'] is not None:
-            if v < values['min_price']:
+    @field_validator('max_price')
+    @classmethod
+    def max_price_must_be_greater_than_min(cls, v, info):
+        if v is not None and info.data.get('min_price') is not None:
+            if v < info.data['min_price']:
                 raise ValueError('max_price must be greater than or equal to min_price')
         return v
 

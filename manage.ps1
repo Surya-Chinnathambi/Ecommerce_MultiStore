@@ -28,79 +28,64 @@ function Show-Menu {
 
 function Start-AllServices {
     Write-Host "🚀 Starting all services..." -ForegroundColor Green
-    docker-compose up -d
+    docker compose up -d
     Start-Sleep -Seconds 5
-    Write-Host "✅ Backend running on http://localhost:8000" -ForegroundColor Green
-    Write-Host "✅ Database running on localhost:5432" -ForegroundColor Green
-    Write-Host "✅ Redis running on localhost:6379" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "Starting frontend..." -ForegroundColor Green
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd frontend\storefront; npm run dev"
-    Write-Host "✅ Frontend running on http://localhost:3000" -ForegroundColor Green
+    Write-Host "✅ Backend API:       http://localhost/api/docs" -ForegroundColor Green
+    Write-Host "✅ Storefront:         http://localhost" -ForegroundColor Green
+    Write-Host "✅ Database:           localhost:5432" -ForegroundColor Green
+    Write-Host "✅ Redis:              localhost:6379" -ForegroundColor Green
 }
 
 function Stop-AllServices {
     Write-Host "🛑 Stopping all services..." -ForegroundColor Red
-    docker-compose down
-    Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force
+    docker compose down
     Write-Host "✅ All services stopped" -ForegroundColor Green
 }
 
 function Show-Status {
     Write-Host "📊 Service Status:" -ForegroundColor Cyan
-    docker-compose ps
-    Write-Host ""
-    Write-Host "Frontend Status:" -ForegroundColor Cyan
-    $nodeProcess = Get-Process -Name node -ErrorAction SilentlyContinue
-    if ($nodeProcess) {
-        Write-Host "✅ Frontend running (PID: $($nodeProcess.Id))" -ForegroundColor Green
-    } else {
-        Write-Host "❌ Frontend not running" -ForegroundColor Red
-    }
+    docker compose ps
 }
 
 function Run-AllTests {
     Write-Host "🧪 Running all tests..." -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "=== Backend API Tests ===" -ForegroundColor Cyan
-    python backend\test_api.py
-    Write-Host ""
-    Write-Host "=== New Features Tests ===" -ForegroundColor Cyan
-    python test_new_features.py
+    Write-Host "=== Backend Tests ==" -ForegroundColor Cyan
+    docker-compose exec backend pytest tests/ -v --tb=short
     Write-Host ""
     Write-Host "✅ All tests completed" -ForegroundColor Green
 }
 
 function Show-BackendLogs {
     Write-Host "📜 Backend Logs (last 50 lines):" -ForegroundColor Magenta
-    docker-compose logs --tail=50 backend
+    docker compose logs --tail=50 backend
 }
 
 function Show-FrontendLogs {
-    Write-Host "📜 Starting frontend log viewer..." -ForegroundColor Magenta
-    docker-compose logs -f frontend
+    Write-Host "📜 Storefront Logs:" -ForegroundColor Magenta
+    docker compose logs -f storefront
 }
 
 function Restart-BackendService {
     Write-Host "🔄 Restarting backend..." -ForegroundColor Yellow
-    docker-compose restart backend
+    docker compose restart backend
     Write-Host "✅ Backend restarted" -ForegroundColor Green
 }
 
 function Open-Frontend {
-    Write-Host "🌐 Opening frontend in browser..." -ForegroundColor Cyan
-    Start-Process "http://localhost:3000"
+    Write-Host "🌐 Opening storefront in browser..." -ForegroundColor Cyan
+    Start-Process "http://localhost"
 }
 
 function Open-ApiDocs {
     Write-Host "📚 Opening API documentation..." -ForegroundColor Cyan
-    Start-Process "http://localhost:8000/docs"
+    Start-Process "http://localhost/api/docs"
 }
 
 function Open-Monitoring {
-    Write-Host "📊 Opening monitoring dashboard..." -ForegroundColor Cyan
-    Write-Host "Note: Login required (admin@test.com / admin123)" -ForegroundColor Yellow
-    Start-Process "http://localhost:3000/monitoring"
+    Write-Host "📊 Opening Grafana monitoring dashboard..." -ForegroundColor Cyan
+    Write-Host "Credentials: admin / admin (change via GRAFANA_ADMIN_PASSWORD env)" -ForegroundColor Yellow
+    Start-Process "http://localhost:3000"
 }
 
 function Clean-Docker {
@@ -108,7 +93,7 @@ function Clean-Docker {
     $confirm = Read-Host "Are you sure? (yes/no)"
     if ($confirm -eq "yes") {
         Write-Host "🧹 Cleaning Docker..." -ForegroundColor Yellow
-        docker-compose down -v
+        docker compose down -v
         docker system prune -f
         Write-Host "✅ Docker cleaned" -ForegroundColor Green
     } else {
@@ -118,7 +103,7 @@ function Clean-Docker {
 
 function Rebuild-Services {
     Write-Host "🔨 Rebuilding all services..." -ForegroundColor Yellow
-    docker-compose build --no-cache
+    docker compose build --no-cache
     Write-Host "✅ Rebuild complete" -ForegroundColor Green
 }
 

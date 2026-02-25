@@ -81,7 +81,18 @@ class RedisClient:
     async def set_json(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Serialize and set JSON in Redis"""
         try:
-            json_str = json.dumps(value)
+            import uuid
+            import datetime as _dt
+
+            class _Encoder(json.JSONEncoder):
+                def default(self, obj: Any) -> Any:
+                    if isinstance(obj, uuid.UUID):
+                        return str(obj)
+                    if isinstance(obj, (_dt.datetime, _dt.date)):
+                        return obj.isoformat()
+                    return super().default(obj)
+
+            json_str = json.dumps(value, cls=_Encoder)
             return await self.set(key, json_str, ttl)
         except Exception as e:
             logger.error(f"JSON encode error for key {key}: {e}")
@@ -210,7 +221,7 @@ class RedisClient:
     async def close(self):
         """Close Redis connection"""
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
             logger.info("Redis connection closed")
 
 

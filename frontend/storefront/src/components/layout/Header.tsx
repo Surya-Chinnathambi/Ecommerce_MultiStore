@@ -88,8 +88,8 @@ export default function Header() {
 
     return (
         <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled
-                ? 'glass shadow-md border-b border-border-color/80'
-                : 'bg-bg-primary border-b border-border-color'
+            ? 'glass shadow-md border-b border-border-color/80'
+            : 'bg-bg-primary border-b border-border-color'
             }`}>
             <div className="container-wide">
                 {/* -- Main row ----------------------------------------- */}
@@ -117,7 +117,7 @@ export default function Header() {
                         </div>
                     </Link>
 
-                    {/* Search — desktop */}
+                    {/* Search ï¿½ desktop */}
                     <div className="hidden md:flex flex-1 max-w-xl">
                         <SearchAutocomplete />
                     </div>
@@ -174,6 +174,7 @@ export default function Header() {
                                     onClick={() => setUserMenuOpen(v => !v)}
                                     className="flex items-center gap-1.5 rounded-[var(--radius-lg)] border border-border-color bg-bg-primary pl-1 pr-2.5 py-1 hover:bg-bg-tertiary hover:border-border-strong transition-all duration-150"
                                     aria-expanded={userMenuOpen}
+                                    aria-haspopup="menu"
                                     aria-label="User menu"
                                 >
                                     <div className="avatar avatar-sm gradient-primary text-white font-bold text-xs">

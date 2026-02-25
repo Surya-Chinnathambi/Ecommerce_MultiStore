@@ -12,6 +12,18 @@ export default defineConfig({
     server: {
         port: 3000,
         host: true,
+        proxy: {
+            // Proxy /api and /ws to the local backend during `npm run dev`
+            '/api': {
+                target: 'http://localhost:8000',
+                changeOrigin: true,
+            },
+            '/ws': {
+                target: 'ws://localhost:8000',
+                ws: true,
+                changeOrigin: true,
+            },
+        },
     },
     build: {
         // Trim chunk size warnings at 600 kB

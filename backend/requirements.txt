@@ -5,6 +5,9 @@ gunicorn==21.2.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 
+# Search
+typesense==0.21.0
+
 # Database
 sqlalchemy==2.0.23
 alembic==1.12.1
@@ -27,7 +30,6 @@ python-multipart==0.0.6
 bcrypt==4.1.1
 
 # API & HTTP
-httpx==0.25.2
 aiohttp==3.9.1
 requests==2.31.0
 
@@ -51,7 +53,6 @@ twilio==8.10.0
 # Payment Gateways
 stripe==7.8.0
 razorpay==1.4.1
-razorpay==1.4.1
 
 # Data Validation & Serialization
 phonenumbers==8.13.26
@@ -67,7 +68,7 @@ python-json-logger==2.0.7
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
-httpx==0.25.2
+httpx==0.25.2  # also used by httpx transport layer
 faker==20.1.0
 
 # Development
@@ -92,6 +93,3 @@ slowapi==0.1.9
 
 # WebSockets
 websockets==12.0
-
-# Search
-typesense==0.21.0

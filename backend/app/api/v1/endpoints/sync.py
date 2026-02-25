@@ -77,7 +77,7 @@ async def sync_products_batch(
         
         return APIResponse(
             success=True,
-            data=result.dict(),
+            data=result.model_dump(mode='json'),
             meta={
                 "store_id": str(store.id),
                 "store_name": store.name,

@@ -3,7 +3,7 @@ Notification schemas for API requests and responses
 """
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.models.notification_models import NotificationType, NotificationStatus, NotificationPriority
 
 
@@ -64,7 +64,8 @@ class NotificationCreate(NotificationBase):
     template_variables: Dict[str, Any] = Field(default_factory=dict)
     schedule_at: Optional[datetime] = None
 
-    @validator('schedule_at')
+    @field_validator('schedule_at')
+    @classmethod
     def validate_schedule_at(cls, v):
         if v and v < datetime.utcnow():
             raise ValueError('schedule_at must be in the future')
@@ -73,7 +74,7 @@ class NotificationCreate(NotificationBase):
 
 class NotificationBulkCreate(BaseModel):
     """Create bulk notifications"""
-    user_ids: List[int] = Field(..., min_items=1)
+    user_ids: List[int] = Field(..., min_length=1)
     template_id: int
     template_variables: Dict[str, Any] = Field(default_factory=dict)
     priority: NotificationPriority = NotificationPriority.NORMAL
@@ -174,7 +175,8 @@ class SendSMSRequest(BaseModel):
     user_id: Optional[int] = None
     priority: NotificationPriority = NotificationPriority.HIGH
 
-    @validator('to')
+    @field_validator('to')
+    @classmethod
     def validate_phone(cls, v):
         # Remove common formatting characters
         phone = v.replace('+', '').replace('-', '').replace(' ', '').replace('(', '').replace(')', '')

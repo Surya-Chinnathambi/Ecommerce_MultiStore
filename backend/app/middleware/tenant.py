@@ -53,13 +53,13 @@ class TenantMiddleware(BaseHTTPMiddleware):
             store = await self.get_store_by_domain(host)
         
         # Try X-Store-ID header
-        if not store:
+        if store is None:
             store_id = request.headers.get("X-Store-ID")
             if store_id:
                 store = await self.get_store_by_id(store_id)
         
         # Try query parameter
-        if not store:
+        if store is None:
             store_id = request.query_params.get("store_id")
             if store_id:
                 store = await self.get_store_by_id(store_id)
@@ -70,7 +70,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         
         # Validate store found and active
-        if store:
+        if store is not None:
             if not store.is_active:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -85,7 +85,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
             if self.is_public_endpoint(request.url.path):
                 # Get first active store as default
                 default_store = await self.get_default_store()
-                if default_store:
+                if default_store is not None:
                     request.state.store = default_store
                     request.state.store_id = str(default_store.id)
             else:
@@ -111,7 +111,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         db = SessionLocal()
         try:
             store = db.query(Store).filter(Store.is_active == True).first()
-            if store:
+            if store is not None:
                 store_dict = {
                     "id": str(store.id),
                     "name": store.name,
@@ -137,7 +137,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         db = SessionLocal()
         try:
             store = db.query(Store).filter(Store.domain == domain).first()
-            if store:
+            if store is not None:
                 # Cache for 1 hour
                 store_dict = {
                     "id": str(store.id),
@@ -164,7 +164,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         db = SessionLocal()
         try:
             store = db.query(Store).filter(Store.id == store_id).first()
-            if store:
+            if store is not None:
                 store_dict = {
                     "id": str(store.id),
                     "name": store.name,

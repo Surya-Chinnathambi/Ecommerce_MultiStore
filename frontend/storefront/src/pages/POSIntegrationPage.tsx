@@ -187,8 +187,8 @@ export default function POSIntegrationPage() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as 'setup' | 'status' | 'logs')}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === tab.id
-                                    ? 'bg-theme-primary text-white'
-                                    : 'bg-bg-tertiary text-text-secondary hover:bg-bg-primary'
+                                ? 'bg-theme-primary text-white'
+                                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-primary'
                                 }`}
                         >
                             <tab.icon className="h-4 w-4" />
@@ -213,10 +213,10 @@ export default function POSIntegrationPage() {
                                             onClick={() => pos.status === 'available' && setPosType(pos.id)}
                                             disabled={pos.status !== 'available'}
                                             className={`w-full p-4 rounded-xl border-2 text-left transition-all ${posType === pos.id
-                                                    ? 'border-theme-primary bg-theme-primary/10'
-                                                    : pos.status === 'available'
-                                                        ? 'border-border-color hover:border-theme-primary/50'
-                                                        : 'border-border-color opacity-50 cursor-not-allowed'
+                                                ? 'border-theme-primary bg-theme-primary/10'
+                                                : pos.status === 'available'
+                                                    ? 'border-border-color hover:border-theme-primary/50'
+                                                    : 'border-border-color opacity-50 cursor-not-allowed'
                                                 }`}
                                         >
                                             <div className="flex items-center justify-between">
@@ -250,8 +250,8 @@ export default function POSIntegrationPage() {
                                             key={type}
                                             onClick={() => setConnectionType(type)}
                                             className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${connectionType === type
-                                                    ? 'border-theme-primary bg-theme-primary/10'
-                                                    : 'border-border-color hover:border-theme-primary/50'
+                                                ? 'border-theme-primary bg-theme-primary/10'
+                                                : 'border-border-color hover:border-theme-primary/50'
                                                 }`}
                                         >
                                             <ConnectionTypeIcon type={type} />
@@ -413,10 +413,12 @@ export default function POSIntegrationPage() {
                                 </h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                                        <label className="block text-sm font-medium text-text-secondary mb-1" htmlFor="productSyncInterval">
                                             Product Sync Interval
                                         </label>
                                         <select
+                                            id="productSyncInterval"
+                                            title="Product Sync Interval"
                                             value={config.sync_interval_minutes}
                                             onChange={e => setConfig({ ...config, sync_interval_minutes: parseInt(e.target.value) })}
                                             className="input"
@@ -430,10 +432,12 @@ export default function POSIntegrationPage() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                                        <label className="block text-sm font-medium text-text-secondary mb-1" htmlFor="inventorySyncInterval">
                                             Inventory Sync Interval
                                         </label>
                                         <select
+                                            id="inventorySyncInterval"
+                                            title="Inventory Sync Interval"
                                             value={config.inventory_sync_interval_minutes}
                                             onChange={e => setConfig({ ...config, inventory_sync_interval_minutes: parseInt(e.target.value) })}
                                             className="input"
@@ -493,6 +497,8 @@ export default function POSIntegrationPage() {
                                 <button
                                     onClick={fetchSyncStatus}
                                     className="btn btn-ghost btn-sm"
+                                    title="Refresh sync status"
+                                    aria-label="Refresh sync status"
                                 >
                                     <RefreshCw className="h-4 w-4" />
                                 </button>
@@ -501,8 +507,8 @@ export default function POSIntegrationPage() {
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                 <div className="text-center p-4 bg-bg-tertiary rounded-xl">
                                     <div className={`inline-flex p-3 rounded-full mb-2 ${syncStatus?.connection_status === 'connected'
-                                            ? 'bg-green-100 text-green-600'
-                                            : 'bg-red-100 text-red-600'
+                                        ? 'bg-green-100 text-green-600'
+                                        : 'bg-red-100 text-red-600'
                                         }`}>
                                         {syncStatus?.connection_status === 'connected' ? (
                                             <Wifi className="h-6 w-6" />
@@ -540,8 +546,8 @@ export default function POSIntegrationPage() {
 
                                 <div className="text-center p-4 bg-bg-tertiary rounded-xl">
                                     <div className={`inline-flex p-3 rounded-full mb-2 ${syncStatus?.sync_in_progress
-                                            ? 'bg-yellow-100 text-yellow-600'
-                                            : 'bg-green-100 text-green-600'
+                                        ? 'bg-yellow-100 text-yellow-600'
+                                        : 'bg-green-100 text-green-600'
                                         }`}>
                                         {syncStatus?.sync_in_progress ? (
                                             <RefreshCw className="h-6 w-6 animate-spin" />
@@ -641,10 +647,10 @@ export default function POSIntegrationPage() {
                                             <td className="py-3 px-4 text-text-primary">{log.time}</td>
                                             <td className="py-3 px-4">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${log.type === 'delta'
-                                                        ? 'bg-blue-100 text-blue-700'
-                                                        : log.type === 'inventory'
-                                                            ? 'bg-purple-100 text-purple-700'
-                                                            : 'bg-gray-100 text-gray-700'
+                                                    ? 'bg-blue-100 text-blue-700'
+                                                    : log.type === 'inventory'
+                                                        ? 'bg-purple-100 text-purple-700'
+                                                        : 'bg-gray-100 text-gray-700'
                                                     }`}>
                                                     {log.type}
                                                 </span>
@@ -666,6 +672,6 @@ export default function POSIntegrationPage() {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

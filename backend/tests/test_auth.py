@@ -118,7 +118,7 @@ class TestAuthUserProfile:
             "/api/v1/auth/me",
             headers={"X-Store-ID": str(test_store.id)}
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
     
     def test_update_profile(self, client, auth_headers, test_store):
         """Test updating user profile"""

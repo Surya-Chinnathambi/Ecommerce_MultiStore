@@ -105,7 +105,7 @@ async def update_template(
         raise HTTPException(status_code=403, detail="Not authorized")
     
     service = get_notification_service(db, current_user.store_id)
-    template = service.update_template(template_id, **updates.dict(exclude_unset=True))
+    template = service.update_template(template_id, **updates.model_dump(exclude_unset=True))
     
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -319,7 +319,7 @@ async def update_my_preferences(
     service = get_notification_service(db, current_user.store_id)
     return service.update_user_preferences(
         user_id=current_user.id,
-        **preferences.dict()
+        **preferences.model_dump()
     )
 
 

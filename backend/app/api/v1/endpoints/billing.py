@@ -103,7 +103,7 @@ async def update_integration(
         raise HTTPException(status_code=403, detail="Not authorized")
     
     service = get_billing_service(db, str(current_user.store_id))
-    integration = service.update_integration(integration_id, **updates.dict(exclude_unset=True))
+    integration = service.update_integration(integration_id, **updates.model_dump(exclude_unset=True))
     
     if not integration:
         raise HTTPException(status_code=404, detail="Integration not found")
@@ -456,7 +456,7 @@ async def create_csv_template(
     
     csv_template = CSVTemplate(
         store_id=current_user.store_id,
-        **template.dict()
+        **template.model_dump()
     )
     
     db.add(csv_template)

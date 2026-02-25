@@ -1,4 +1,5 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import List
@@ -100,15 +101,19 @@ def register_customer(user_data: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-async def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    """Login user — enforces account lockout after repeated failures."""
+async def login(credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Login user — enforces account lockout after repeated failures.
+    
+    Accepts form-urlencoded body with username (= email) and password.
+    """
+    email = credentials.username  # OAuth2 form uses 'username'; we treat it as email
     # Check lockout BEFORE hitting the DB (prevents timing attacks)
-    await check_account_locked(credentials.email)
+    await check_account_locked(email)
 
-    user = db.query(User).filter(User.email == credentials.email).first()
+    user = db.query(User).filter(User.email == email).first()
     
     if not user or not verify_password(credentials.password, user.password_hash):
-        await record_failed_login(credentials.email)
+        await record_failed_login(email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -121,7 +126,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
         )
     
     # Successful login — clear failure counter and update last_login
-    await clear_failed_logins(credentials.email)
+    await clear_failed_logins(email)
     user.last_login_at = datetime.utcnow()
     db.commit()
     
@@ -285,7 +290,7 @@ def create_address(
     
     address = Address(
         user_id=current_user.id,
-        **address_data.dict()
+        **address_data.model_dump()
     )
     
     db.add(address)
@@ -333,7 +338,7 @@ def update_address(
         ).update({"is_default": False})
     
     # Update fields
-    update_data = address_data.dict(exclude_unset=True)
+    update_data = address_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(address, field, value)
     
@@ -503,7 +508,7 @@ async def get_my_orders(
 
     orders_data = []
     for order in orders:
-        order_dict = OrderResponse.from_orm(order).dict()
+        order_dict = OrderResponse.model_validate(order).model_dump(mode='json')
         orders_data.append(order_dict)
 
     return APIResponse(
@@ -555,7 +560,7 @@ def create_api_key(
     db.commit()
     db.refresh(api_key)
 
-    return {**APIKeyResponse.from_orm(api_key).dict(), "raw_key": raw_key}
+    return {**APIKeyResponse.model_validate(api_key).model_dump(mode='json'), "raw_key": raw_key}
 
 
 @router.get("/api-keys", response_model=List[APIKeyResponse])
@@ -626,4 +631,4 @@ def rotate_api_key(
     db.commit()
     db.refresh(new_key)
 
-    return {**APIKeyResponse.from_orm(new_key).dict(), "raw_key": raw_key}
+    return {**APIKeyResponse.model_validate(new_key).model_dump(mode='json'), "raw_key": raw_key}

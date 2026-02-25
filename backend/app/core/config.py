@@ -177,9 +177,7 @@ class Settings(BaseSettings):
                 )
         return self
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = {"env_file": ".env", "case_sensitive": True}
 
 
 @lru_cache()

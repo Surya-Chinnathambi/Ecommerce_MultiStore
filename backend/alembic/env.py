@@ -22,6 +22,7 @@ from app.models.analytics_models import *
 from app.models.billing_models import *
 from app.models.notification_models import *
 from app.models.review_models import *
+from app.models.marketplace_models import *
 
 config = context.config
 

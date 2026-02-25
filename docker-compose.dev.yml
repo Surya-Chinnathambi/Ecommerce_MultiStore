@@ -1,0 +1,126 @@
+# ── Lean Development Stack ────────────────────────────────────────────────────
+# Runs: db · redis · typesense · backend · storefront · nginx
+# Excludes: celery_worker, celery_beat, prometheus, grafana, invoice-ninja stack
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up --build
+#   docker compose -f docker-compose.dev.yml down -v   # wipe volumes too
+#
+# Access:
+#   Storefront + API  →  http://localhost
+#   Backend API docs  →  http://localhost/api/docs
+#   Direct backend    →  http://localhost:8000/api/docs
+#   Storefront direct →  http://localhost:5173
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: ecommerce_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ecommerce_platform
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce_redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Typesense Search Engine ───────────────────────────────────────────────
+  typesense:
+    image: typesense/typesense:0.25.2
+    container_name: ecommerce_typesense
+    command: >
+      --data-dir /data --api-key=typesense-dev-key --enable-cors
+    volumes:
+      - typesense_data:/data
+    ports:
+      - "8108:8108"
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8108' 2>/dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── FastAPI Backend ───────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ecommerce_backend
+    # Dev: hot-reload uvicorn instead of multi-worker gunicorn
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - .env.development
+    volumes:
+      - ./backend:/app # live-reload: edits reflect instantly
+      - backend_uploads:/app/uploads
+      - backend_logs:/app/logs
+    ports:
+      - "8000:8000" # direct access for curl/Postman
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      typesense:
+        condition: service_healthy # wait for typesense to be ready
+    restart: unless-stopped
+
+  # ── React Storefront (Vite → Nginx static) ────────────────────────────────
+  storefront:
+    build:
+      context: ./frontend/storefront
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_WS_URL: ws://localhost/api/v1
+    container_name: ecommerce_storefront
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ── Nginx Reverse Proxy (main entry-point: :80) ────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: ecommerce_nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - storefront
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  typesense_data:
+  backend_uploads:
+  backend_logs:

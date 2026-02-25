@@ -2,8 +2,7 @@
 Database Configuration and Session Management
 """
 from sqlalchemy import create_engine, event
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 from contextlib import contextmanager
 import logging
@@ -51,7 +50,8 @@ if settings.DATABASE_READ_REPLICAS:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Base class for models
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 
 # Database session dependency

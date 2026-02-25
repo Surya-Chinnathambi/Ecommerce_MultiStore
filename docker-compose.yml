@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database (E-commerce)
   db:
@@ -14,7 +12,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,7 +27,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,7 +43,7 @@ services:
     image: ecommerce-platform-storefront:latest
     container_name: ecommerce_storefront
     ports:
-      - "5173:80"   # Nginx inside container listens on 80; mapped to 5173 for compat
+      - "5173:80" # Nginx inside container listens on 80; mapped to 5173 for compat
     restart: unless-stopped
 
   # Nginx Reverse Proxy (single entry-point: port 80)
@@ -78,7 +76,7 @@ services:
       - backend_uploads:/app/uploads
       - backend_logs:/app/logs
     ports:
-      - "8000:8000"   # Direct access for dev; in prod traffic comes via nginx
+      - "8000:8000" # Direct access for dev; in prod traffic comes via nginx
     depends_on:
       db:
         condition: service_healthy
@@ -96,12 +94,7 @@ services:
     container_name: ecommerce_celery_worker
     # Override entrypoint CMD: skip gunicorn, run celery worker instead
     command: >
-      celery -A app.celery_app.celery_app worker
-      --loglevel=info
-      -Q default,sync_queue,order_queue,analytics_queue,notifications_queue
-      --concurrency=4
-      --max-tasks-per-child=1000
-      --hostname=worker@%h
+      celery -A app.celery_app.celery_app worker --loglevel=info -Q default,sync_queue,order_queue,analytics_queue,notifications_queue --concurrency=4 --max-tasks-per-child=1000 --hostname=worker@%h
     env_file:
       - .env.development
     volumes:
@@ -115,7 +108,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "celery -A app.celery_app.celery_app inspect ping -d worker@$$HOSTNAME || exit 1"]
+      test: [ "CMD-SHELL", "celery -A app.celery_app.celery_app inspect ping -d worker@$$HOSTNAME || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -128,10 +121,7 @@ services:
       dockerfile: Dockerfile
     container_name: ecommerce_celery_beat
     command: >
-      celery -A app.celery_app.celery_app beat
-      --loglevel=info
-      --scheduler celery.beat.PersistentScheduler
-      --schedule=/var/celerybeat/celerybeat-schedule
+      celery -A app.celery_app.celery_app beat --loglevel=info --scheduler celery.beat.PersistentScheduler --schedule=/var/celerybeat/celerybeat-schedule
     env_file:
       - .env.development
     volumes:
@@ -159,7 +149,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=15d
-      - --web.enable-lifecycle          # allows POST /-/reload
+      - --web.enable-lifecycle # allows POST /-/reload
       - --web.console.libraries=/usr/share/prometheus/console_libraries
       - --web.console.templates=/usr/share/prometheus/consoles
     volumes:
@@ -195,7 +185,7 @@ services:
   # ============================================
   # INVOICE NINJA - Billing & Invoicing System
   # ============================================
-  
+
   # MySQL Database for Invoice Ninja
   invoice-ninja-db:
     image: mysql:8.0
@@ -210,7 +200,7 @@ services:
     ports:
       - "3307:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "ninja", "-pninja_password"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "ninja", "-pninja_password" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -233,10 +223,10 @@ services:
       - APP_URL=http://localhost:8080
       - APP_KEY=base64:O1S3MOTZ5Mv3aB4rPMkOWAx7FjvBevleqvJRe1V+pLk=
       - APP_ENV=production
-      - APP_DEBUG=true
+      - APP_DEBUG=false
       - REQUIRE_HTTPS=false
       - TRUSTED_PROXIES=*
-      
+
       # Database
       - DB_HOST=invoice-ninja-db
       - DB_PORT=3306
@@ -244,27 +234,27 @@ services:
       - DB_USERNAME=ninja
       - DB_PASSWORD=ninja_password
       - DB_TYPE=mysql
-      
+
       # Queue & Cache
       - QUEUE_CONNECTION=database
       - CACHE_DRIVER=file
       - SESSION_DRIVER=file
-      
+
       # Mail (configure for production)
       - MAIL_MAILER=log
       - MAIL_HOST=mailhog
       - MAIL_PORT=1025
       - MAIL_FROM_ADDRESS=invoices@yourdomain.com
       - MAIL_FROM_NAME="Your Company"
-      
+
       # PDF Generation
       - PDF_GENERATOR=snappdf
-      
+
       # India GST Settings
       - DEFAULT_COUNTRY=IN
       - DEFAULT_CURRENCY=INR
       - DEFAULT_LOCALE=en_IN
-      
+
       # Security
       - PHANTOMJS_PDF_GENERATION=false
       - SELF_UPDATER_ENABLED=false
@@ -291,18 +281,17 @@ services:
     image: typesense/typesense:0.25.2
     container_name: ecommerce_typesense
     command: >
-      --data-dir /data
-      --api-key=typesense-dev-key
-      --enable-cors
+      --data-dir /data --api-key=typesense-dev-key --enable-cors
     volumes:
       - typesense_data:/data
     ports:
       - "8108:8108"
     healthcheck:
-      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8108' 2>/dev/null || exit 1"]
-      interval: 15s
+      test: [ "CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8108' 2>/dev/null || exit 1" ]
+      interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 20s
     restart: unless-stopped
 
 volumes:
@@ -312,8 +301,8 @@ volumes:
   ninja_public:
   ninja_storage:
   typesense_data:
-  celerybeat_data:         # Persists Celery Beat schedule across restarts
-  backend_uploads:         # Shared uploads volume (backend + worker)
-  backend_logs:            # Centralised log directory
-  prometheus_data:         # Prometheus time-series data (15-day retention)
-  grafana_data:            # Grafana state, users, dashboard edits
+  celerybeat_data: # Persists Celery Beat schedule across restarts
+  backend_uploads: # Shared uploads volume (backend + worker)
+  backend_logs: # Centralised log directory
+  prometheus_data: # Prometheus time-series data (15-day retention)
+  grafana_data: # Grafana state, users, dashboard edits

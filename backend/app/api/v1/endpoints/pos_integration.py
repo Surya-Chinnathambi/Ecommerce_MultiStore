@@ -142,15 +142,15 @@ async def create_pos_config(
             detail="Store not found"
         )
     
-    # Check admin access
-    if not current_user.is_superuser and str(store.owner_id) != str(current_user.id):
+    # Check admin access — super-admins can configure any store, others only their own
+    if not current_user.is_superuser and str(current_user.store_id) != str(store.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to configure this store"
         )
     
     # Store configuration (in production, save to database)
-    config_data = config.dict()
+    config_data = config.model_dump()
     config_data["id"] = f"pos_{config.store_id}"
     config_data["created_at"] = datetime.utcnow()
     config_data["updated_at"] = datetime.utcnow()

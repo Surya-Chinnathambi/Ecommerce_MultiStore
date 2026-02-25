@@ -198,7 +198,7 @@ def create_banner(
         raise HTTPException(status_code=400, detail="User not associated with a store")
     
     new_banner = PromotionalBanner(
-        **banner.dict(),
+        **banner.model_dump(),
         store_id=current_user.store_id,
         start_date=banner.start_date or datetime.utcnow()
     )
@@ -351,7 +351,7 @@ def create_flash_sale(
     discount_percent = round(((product.selling_price - flash_sale.sale_price) / product.selling_price) * 100, 2)
     
     new_flash_sale = FlashSale(
-        **flash_sale.dict(),
+        **flash_sale.model_dump(),
         store_id=current_user.store_id,
         original_price=product.selling_price,
         discount_percent=discount_percent

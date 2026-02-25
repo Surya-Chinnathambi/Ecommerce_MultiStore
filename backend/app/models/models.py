@@ -206,9 +206,11 @@ class Product(Base):
     variant_groups = relationship("ProductVariantGroup", cascade="all, delete-orphan",
                                   foreign_keys="ProductVariantGroup.product_id")
     wishlist_items = relationship("WishlistItem", cascade="all, delete-orphan",
-                                  foreign_keys="WishlistItem.product_id")
+                                  foreign_keys="WishlistItem.product_id",
+                                  overlaps="product")
     seller_listings = relationship("SellerProduct", cascade="all, delete-orphan",
-                                   foreign_keys="SellerProduct.product_id")
+                                   foreign_keys="SellerProduct.product_id",
+                                   overlaps="product")
 
     __table_args__ = (
         Index('idx_product_store_external', 'store_id', 'external_id', unique=True),

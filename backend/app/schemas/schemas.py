@@ -1,7 +1,7 @@
 """
 Pydantic Schemas for Request/Response Validation
 """
-from pydantic import BaseModel, Field, validator, EmailStr
+from pydantic import BaseModel, Field, field_validator, EmailStr
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import UUID
@@ -27,7 +27,7 @@ class OrderStatus(str, Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
     PROCESSING = "processing"
-    READY = "ready"
+    SHIPPED = "shipped"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
 
@@ -102,9 +102,10 @@ class ProductCreate(ProductBase):
     external_id: str = Field(..., min_length=1, max_length=100)
     slug: str = Field(..., min_length=2, max_length=500)
     
-    @validator('selling_price')
-    def selling_price_not_greater_than_mrp(cls, v, values):
-        if 'mrp' in values and v > values['mrp']:
+    @field_validator('selling_price', mode='before')
+    @classmethod
+    def selling_price_not_greater_than_mrp(cls, v, info):
+        if 'mrp' in (info.data or {}) and info.data['mrp'] and v > info.data['mrp']:
             raise ValueError('Selling price cannot be greater than MRP')
         return v
 
@@ -172,9 +173,10 @@ class SyncBatchRequest(BaseModel):
     store_id: UUID
     sync_type: str = Field(..., pattern="^(delta|full|inventory_only)$")
     timestamp: datetime
-    products: List[SyncProductItem] = Field(..., max_items=1000)
+    products: List[SyncProductItem] = Field(..., max_length=1000)
     
-    @validator('products')
+    @field_validator('products', mode='before')
+    @classmethod
     def validate_products(cls, v):
         if len(v) == 0:
             raise ValueError('Products list cannot be empty')
@@ -211,7 +213,7 @@ class OrderCreate(BaseModel):
     delivery_landmark: Optional[str] = None
     payment_method: str = Field(default="COD")
     notes: Optional[str] = None
-    items: List[OrderItemCreate] = Field(..., min_items=1, max_items=50)
+    items: List[OrderItemCreate] = Field(..., min_length=1, max_length=50)
 
 
 class OrderItemResponse(BaseModel):

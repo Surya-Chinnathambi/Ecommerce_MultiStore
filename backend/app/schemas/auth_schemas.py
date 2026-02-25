@@ -1,5 +1,5 @@
 ﻿from __future__ import annotations
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
@@ -13,14 +13,16 @@ class UserRegister(BaseModel):
     password: str = Field(..., min_length=8)
     full_name: str = Field(..., min_length=2, max_length=255)
 
-    @validator('phone')
+    @field_validator('phone')
+    @classmethod
     def validate_phone(cls, v):
         pattern = r'^\+?[1-9]\d{9,14}$'
         if not re.match(pattern, v):
             raise ValueError('Invalid phone number format')
         return v
 
-    @validator('password')
+    @field_validator('password')
+    @classmethod
     def validate_password(cls, v):
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters')
@@ -77,7 +79,8 @@ class ChangePassword(BaseModel):
     old_password: str
     new_password: str = Field(..., min_length=8)
 
-    @validator('new_password')
+    @field_validator('new_password')
+    @classmethod
     def validate_password(cls, v):
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters')
@@ -95,7 +98,8 @@ class UpdateProfile(BaseModel):
     full_name: Optional[str] = Field(None, min_length=2, max_length=255)
     phone: Optional[str] = Field(None, min_length=10, max_length=20)
 
-    @validator('phone')
+    @field_validator('phone')
+    @classmethod
     def validate_phone(cls, v):
         if v is not None:
             pattern = r'^\+?[1-9]\d{9,14}$'
@@ -157,7 +161,8 @@ class AdminRegister(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=255)
     store_id: UUID
 
-    @validator('phone')
+    @field_validator('phone')
+    @classmethod
     def validate_phone(cls, v):
         pattern = r'^\+?[1-9]\d{9,14}$'
         if not re.match(pattern, v):
@@ -175,7 +180,8 @@ class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8)
     
-    @validator('new_password')
+    @field_validator('new_password')
+    @classmethod
     def validate_password(cls, v):
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters')

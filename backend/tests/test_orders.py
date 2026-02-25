@@ -145,7 +145,7 @@ class TestAdminOrderManagement:
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["data"]["total"] >= 2
+        assert data["meta"]["total"] >= 2
 
     def test_admin_orders_pagination(self, client, admin_headers, db_session, test_store):
         """Pagination works correctly for admin order list."""
@@ -158,7 +158,7 @@ class TestAdminOrderManagement:
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data["data"]["orders"]) <= 3
+        assert len(data["data"]) <= 3
 
     def test_admin_orders_filter_by_status(self, client, admin_headers, db_session, test_store):
         """Status filter returns only matching orders."""
@@ -185,7 +185,7 @@ class TestAdminOrderManagement:
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        for order in data["data"]["orders"]:
+        for order in data["data"]:
             assert order["order_status"] == "confirmed"
 
     def test_admin_orders_search(self, client, admin_headers, db_session, test_store):
@@ -198,7 +198,7 @@ class TestAdminOrderManagement:
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert any(o["order_number"] == "FIND-UNIQUE-999" for o in data["data"]["orders"])
+        assert any(o["order_number"] == "FIND-UNIQUE-999" for o in data["data"])
 
     def test_non_admin_cannot_access_admin_orders(self, client, auth_headers, test_store):
         """Regular customer should be forbidden from admin endpoint."""
@@ -219,18 +219,18 @@ class TestCustomerOrderHistory:
         _make_order(db_session, test_store.id, user_id=test_user.id)
 
         response = client.get(
-            "/api/v1/orders/my-orders",
+            "/api/v1/orders/customer",
             headers={**auth_headers, "X-Store-ID": str(test_store.id)},
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["success"] is True
-        assert data["data"]["total"] >= 1
+        assert data["meta"]["total"] >= 1
 
     def test_my_orders_requires_auth(self, client, test_store):
-        """Unauthenticated requests to my-orders should be rejected."""
+        """Unauthenticated requests to customer orders should be rejected."""
         response = client.get(
-            "/api/v1/orders/my-orders",
+            "/api/v1/orders/customer",
             headers={"X-Store-ID": str(test_store.id)},
         )
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
