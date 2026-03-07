@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Package, ShieldCheck, Truck, Tag, X, Gift } from 'lucide-react'
 import { couponsApi } from '@/lib/api'
 import { toast } from '@/components/ui/Toaster'
+import { motion, AnimatePresence } from 'framer-motion'
+import confetti from 'canvas-confetti'
 
 const FREE_SHIPPING_THRESHOLD = 499
 
@@ -17,6 +19,18 @@ export default function CartPage() {
     const freeShippingRemaining = Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotal)
     const freeShippingProgress = Math.min(100, (cartTotal / FREE_SHIPPING_THRESHOLD) * 100)
     const hasFreeShipping = cartTotal >= FREE_SHIPPING_THRESHOLD
+
+    // Trigger confetti when free shipping is hit
+    useState(() => {
+        if (hasFreeShipping && items.length > 0) {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#10B981', '#34D399', '#6EE7B7']
+            })
+        }
+    })
 
     const handleCoupon = async () => {
         if (!couponCode.trim()) return
@@ -40,7 +54,11 @@ export default function CartPage() {
 
     if (items.length === 0) {
         return (
-            <div className="container mx-auto px-4 py-16 animate-fade-in">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="container mx-auto px-4 py-16"
+            >
                 <div className="empty-state">
                     <ShoppingBag className="empty-state-icon" />
                     <h2 className="empty-state-title">Your cart is empty</h2>
@@ -50,12 +68,16 @@ export default function CartPage() {
                         <span>Browse Products</span>
                     </Link>
                 </div>
-            </div>
+            </motion.div>
         )
     }
 
     return (
-        <div className="container mx-auto px-4 py-8 animate-fade-in">
+        <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="container mx-auto px-4 py-8"
+        >
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="section-title">Shopping Cart</h1>
@@ -71,35 +93,62 @@ export default function CartPage() {
             </div>
 
             {/* ── Free Shipping Progress Bar ─────────────────────────────────────────────── */}
-            <div className={`rounded-2xl p-4 mb-6 border ${hasFreeShipping
-                ? 'bg-green-500/10 border-green-500/20'
-                : 'bg-theme-primary/5 border-theme-primary/10'
-                }`}>
+            <motion.div 
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                whileHover={{ scale: 1.01 }}
+                className={`rounded-2xl p-4 mb-6 border transition-all duration-300 ${hasFreeShipping
+                    ? 'bg-green-500/10 border-green-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+                    : 'bg-theme-primary/5 border-theme-primary/10'
+                }`}
+            >
                 <div className="flex items-center gap-2 mb-2">
                     <Truck className={`h-4 w-4 ${hasFreeShipping ? 'text-green-500' : 'text-theme-primary'}`} />
                     {hasFreeShipping ? (
-                        <p className="text-sm font-semibold text-green-600 dark:text-green-400">
+                        <motion.p 
+                            initial={{ x: -10, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            className="text-sm font-semibold text-green-600 dark:text-green-400"
+                        >
                             🎉 You’ve unlocked <strong>Free Shipping</strong>!
-                        </p>
+                        </motion.p>
                     ) : (
                         <p className="text-sm font-medium text-text-secondary">
                             Add <span className="font-bold text-theme-primary">₹{freeShippingRemaining.toFixed(2)}</span> more to get <strong>Free Shipping</strong>
                         </p>
                     )}
                 </div>
-                <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden">
-                    <style dangerouslySetInnerHTML={{ __html: `.fs-bar{width:${freeShippingProgress}%}` }} />
-                    <div className={`fs-bar h-full rounded-full transition-all duration-500 ${hasFreeShipping ? 'bg-green-500' : 'bg-gradient-to-r from-theme-primary to-theme-accent'}`} />
+                <div className="h-3 bg-bg-tertiary rounded-full overflow-hidden relative">
+                    <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${freeShippingProgress}%` }}
+                        transition={{ type: 'spring', stiffness: 50, damping: 15 }}
+                        className={`absolute top-0 left-0 h-full rounded-full ${hasFreeShipping ? 'bg-green-500' : 'bg-gradient-to-r from-theme-primary to-theme-accent'}`} 
+                    />
+                    {hasFreeShipping && (
+                        <motion.div 
+                            initial={{ x: '-100%' }}
+                            animate={{ x: '200%' }}
+                            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                            className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-20deg]"
+                        />
+                    )}
                 </div>
-            </div>
+            </motion.div>
 
             <div className="grid lg:grid-cols-3 gap-8">
                 {/* Cart Items */}
                 <div className="lg:col-span-2 space-y-4">
+                    <AnimatePresence mode='popLayout'>
                     {items.map((item) => (
-                        <div
+                        <motion.div
                             key={item.product_id}
-                            className="card card-hover p-4 flex gap-4 animate-fade-in"
+                            layout
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.8, x: -50 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="card card-hover p-4 flex gap-4"
                         >
                             {/* Product Image */}
                             <Link to={`/products/${item.product_id}`} className="flex-shrink-0">
@@ -164,8 +213,9 @@ export default function CartPage() {
                                     <Trash2 className="h-5 w-5" />
                                 </button>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
+                    </AnimatePresence>
                 </div>
 
                 {/* Order Summary */}
@@ -269,6 +319,6 @@ export default function CartPage() {
                     </div>
                 </div>
             </div>
-        </div>
+        </motion.div>
     )
 }

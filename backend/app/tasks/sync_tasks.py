@@ -30,49 +30,57 @@ class DatabaseTask(Task):
             self._db = None
 
 
-@celery_app.task(base=DatabaseTask, bind=True, name="app.tasks.sync_tasks.evaluate_all_store_tiers")
+@celery_app.task(
+    base=DatabaseTask,
+    bind=True,
+    name="app.tasks.sync_tasks.evaluate_all_store_tiers"
+)
 def evaluate_all_store_tiers(self):
     """
     Periodic task to evaluate and adjust store tiers
     Runs every hour
     """
     logger.info("Starting store tier evaluation...")
-    
+
     stores = self.db.query(Store).filter(Store.is_active == True).all()
     tier_manager = TierManager(self.db)
-    
+
     updated_count = 0
     for store in stores:
         try:
             old_tier = store.sync_tier
             tier_manager.evaluate_and_adjust_tier(store.id)
-            
+
             if store.sync_tier != old_tier:
                 updated_count += 1
                 logger.info(f"Store {store.name} tier updated: {old_tier} → {store.sync_tier}")
         except Exception as e:
             logger.error(f"Failed to evaluate tier for store {store.id}: {e}")
-    
+
     logger.info(f"Tier evaluation complete. {updated_count} stores updated.")
     return {"evaluated": len(stores), "updated": updated_count}
 
 
-@celery_app.task(base=DatabaseTask, bind=True, name="app.tasks.sync_tasks.cleanup_old_sync_logs")
+@celery_app.task(
+    base=DatabaseTask,
+    bind=True,
+    name="app.tasks.sync_tasks.cleanup_old_sync_logs"
+)
 def cleanup_old_sync_logs(self):
     """
     Clean up sync logs older than 30 days
     Runs daily at 2 AM
     """
     logger.info("Starting sync log cleanup...")
-    
+
     cutoff_date = datetime.utcnow() - timedelta(days=30)
-    
+
     deleted = self.db.query(SyncLog).filter(
         SyncLog.started_at < cutoff_date
     ).delete()
-    
+
     self.db.commit()
-    
+
     logger.info(f"Deleted {deleted} old sync logs")
     return {"deleted": deleted}
 

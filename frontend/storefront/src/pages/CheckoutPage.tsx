@@ -1,4 +1,4 @@
-﻿import { useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useCartStore } from '@/store/cartStore'
@@ -8,7 +8,8 @@ import { orderApi, authApi, couponsApi, pincodeApi } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
 import { toast } from '@/components/ui/Toaster'
 import { useEffect, useState, useRef } from 'react'
-import { MapPin, Tag, X, Check, Loader2, Truck } from 'lucide-react'
+import { MapPin, Tag, X, Check, Loader2, Truck, ArrowRight, ArrowLeft } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const checkoutSchema = z.object({
     customer_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -29,6 +30,7 @@ export default function CheckoutPage() {
     const navigate = useNavigate()
     const { items, getTotalPrice, clearCart } = useCartStore()
     const { user, isAuthenticated } = useAuthStore()
+    const [currentStep, setCurrentStep] = useState(1)
     const [showAddresses, setShowAddresses] = useState(false)
     const [couponCode, setCouponCode] = useState('')
     const [couponData, setCouponData] = useState<any>(null)
@@ -66,7 +68,7 @@ export default function CheckoutPage() {
         setCouponCode('')
     }
 
-    const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<CheckoutForm>({
+    const { register, handleSubmit, trigger, formState: { errors }, setValue, watch } = useForm<CheckoutForm>({
         resolver: zodResolver(checkoutSchema),
         defaultValues: {
             payment_method: 'COD',
@@ -217,24 +219,36 @@ export default function CheckoutPage() {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="grid lg:grid-cols-3 gap-8">
-                {/* Delivery Details */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="card">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold text-text-primary">Delivery Details</h2>
-                            {isAuthenticated && addresses.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAddresses(!showAddresses)}
-                                    className="text-sm text-theme-primary hover:text-theme-primary-hover font-medium"
-                                >
-                                    {showAddresses ? 'Hide Addresses' : 'Choose Saved Address'}
-                                </button>
-                            )}
-                        </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="grid lg:grid-cols-3 gap-8 relative overflow-hidden">
+                {/* ── Dynamic Wizard Area ── */}
+                <div className="lg:col-span-2">
+                    <AnimatePresence mode="wait" custom={currentStep}>
+                        
+                        {/* ── Step 1: Delivery Details ── */}
+                        {currentStep === 1 && (
+                            <motion.div
+                                key="step-1"
+                                initial={{ opacity: 0, x: -50 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 50 }}
+                                transition={{ duration: 0.3 }}
+                                className="space-y-6"
+                            >
+                                <div className="card">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-xl font-bold text-text-primary">Delivery Details</h2>
+                                        {isAuthenticated && addresses.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAddresses(!showAddresses)}
+                                                className="text-sm text-theme-primary hover:text-theme-primary-hover font-medium"
+                                            >
+                                                {showAddresses ? 'Hide Addresses' : 'Choose Saved Address'}
+                                            </button>
+                                        )}
+                                    </div>
 
-                        {/* Saved Addresses */}
+                                    {/* Saved Addresses */}
                         {isAuthenticated && showAddresses && addresses.length > 0 && (
                             <div className="mb-6 grid md:grid-cols-2 gap-4">
                                 {addresses.map((address: any) => (
@@ -355,8 +369,36 @@ export default function CheckoutPage() {
                         </div>
                     </div>
 
-                    {/* Payment Method */}
-                    <div className="card">
+                    {/* Next Step Action */}
+                    <div className="flex justify-end mt-6">
+                            <button 
+                                type="button" 
+                                onClick={async () => {
+                                    const isValid = await trigger([
+                                        'customer_name', 'customer_phone', 'customer_email', 
+                                        'delivery_address', 'delivery_city', 'delivery_state', 'delivery_pincode'
+                                    ])
+                                    if (isValid) setCurrentStep(2)
+                                }} 
+                                className="btn btn-primary"
+                            >
+                                Continue to Payment
+                                <ArrowRight className="h-4 w-4 ml-2" />
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* ── Step 2: Payment Method ── */}
+                {currentStep === 2 && (
+                    <motion.div
+                        key="step-2"
+                        initial={{ opacity: 0, x: -50 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 50 }}
+                        transition={{ duration: 0.3 }}
+                        className="card"
+                    >
                         <h2 className="text-xl font-bold mb-4 text-text-primary">Payment Method</h2>
 
                         <div className="space-y-3">
@@ -376,10 +418,56 @@ export default function CheckoutPage() {
                                 </div>
                             </label>
                         </div>
-                    </div>
-                </div>
 
-                {/* Order Summary */}
+                        <div className="flex justify-between mt-6">
+                            <button 
+                                type="button" 
+                                onClick={() => setCurrentStep(1)} 
+                                className="btn btn-ghost"
+                            >
+                                <ArrowLeft className="h-4 w-4 mr-2" />
+                                Back
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={() => setCurrentStep(3)} 
+                                className="btn btn-primary"
+                            >
+                                Review Order
+                                <ArrowRight className="h-4 w-4 ml-2" />
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* ── Step 3: Final Review Confirmation (Handled by the sticky Summary block acting as submit, but we provide an empty placeholder here) ── */}
+                {currentStep === 3 && (
+                    <motion.div
+                        key="step-3"
+                        initial={{ opacity: 0, x: -50 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 50 }}
+                        transition={{ duration: 0.3 }}
+                        className="card bg-theme-primary/5 border-theme-primary/20 flex flex-col items-center justify-center p-8 text-center"
+                    >
+                        <Check className="h-16 w-16 text-green-500 mb-4 bg-green-500/10 p-4 rounded-full" />
+                        <h2 className="text-2xl font-bold text-text-primary mb-2">Ready to Complete?</h2>
+                        <p className="text-text-secondary mb-6 max-w-md">Please review your order summary on the right. Once you confirm the details, you can place your order securely.</p>
+                        <button 
+                            type="button" 
+                            onClick={() => setCurrentStep(2)} 
+                            className="btn btn-ghost"
+                        >
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Back to Payment
+                        </button>
+                    </motion.div>
+                )}
+
+                </AnimatePresence>
+            </div>
+
+                {/* Order Summary (Sticky Right Panel) */}
                 <div className="lg:col-span-1">
                     <div className="card sticky top-24">
                         <h2 className="text-xl font-bold mb-4 text-text-primary">Order Summary</h2>
@@ -463,13 +551,23 @@ export default function CheckoutPage() {
                             )}
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={createOrderMutation.isPending}
-                            className="w-full btn btn-primary disabled:opacity-50"
-                        >
-                            {createOrderMutation.isPending ? 'Placing Order...' : 'Place Order'}
-                        </button>
+                        {currentStep === 3 ? (
+                            <button
+                                type="submit"
+                                disabled={createOrderMutation.isPending}
+                                className="w-full btn btn-primary disabled:opacity-50"
+                            >
+                                {createOrderMutation.isPending ? 'Placing Order...' : 'Place Order'}
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setCurrentStep(Math.min(3, currentStep + 1))}
+                                className="w-full btn btn-primary"
+                            >
+                                Continue Next Step
+                            </button>
+                        )}
 
                         {!isAuthenticated && (
                             <p className="text-sm text-text-secondary mt-4 text-center">

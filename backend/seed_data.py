@@ -334,10 +334,10 @@ def seed_database():
                         name=product_data["name"],
                         slug=product_data["name"].lower().replace(" ", "-").replace("''", ""),
                         description=product_data["description"],
-                        mrp=product_data[price],
-                        selling_price=product_data[price],
+                        mrp=product_data["price"],
+                        selling_price=product_data["price"],
                         quantity=100,
-                        external_id=product_data[sku],
+                        external_id=product_data["sku"],
                         is_active=True,
                         created_at=datetime.utcnow(),
                         updated_at=datetime.utcnow()

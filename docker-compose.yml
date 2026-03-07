@@ -4,8 +4,8 @@ services:
     image: postgres:15-alpine
     container_name: ecommerce_db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ecommerce_platform
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -42,8 +42,6 @@ services:
         VITE_WS_URL: ws://localhost/api/v1
     image: ecommerce-platform-storefront:latest
     container_name: ecommerce_storefront
-    ports:
-      - "5173:80" # Nginx inside container listens on 80; mapped to 5173 for compat
     restart: unless-stopped
 
   # Nginx Reverse Proxy (single entry-point: port 80)
@@ -70,7 +68,7 @@ services:
     # Dev mode: override CMD with hot-reload uvicorn (skips gunicorn)
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     env_file:
-      - .env.development
+      - backend/.env
     volumes:
       - ./backend:/app
       - backend_uploads:/app/uploads
@@ -82,8 +80,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      typesense:
-        condition: service_started
     restart: unless-stopped
 
   # Celery Worker — processes background tasks
@@ -96,7 +92,7 @@ services:
     command: >
       celery -A app.celery_app.celery_app worker --loglevel=info -Q default,sync_queue,order_queue,analytics_queue,notifications_queue --concurrency=4 --max-tasks-per-child=1000 --hostname=worker@%h
     env_file:
-      - .env.development
+      - backend/.env
     volumes:
       - ./backend:/app
       - backend_uploads:/app/uploads
@@ -123,7 +119,7 @@ services:
     command: >
       celery -A app.celery_app.celery_app beat --loglevel=info --scheduler celery.beat.PersistentScheduler --schedule=/var/celerybeat/celerybeat-schedule
     env_file:
-      - .env.development
+      - backend/.env
     volumes:
       - ./backend:/app
       - celerybeat_data:/var/celerybeat
@@ -137,172 +133,9 @@ services:
         condition: service_started
     restart: unless-stopped
 
-  # ============================================
-  # OBSERVABILITY STACK
-  # ============================================
-
-  # Prometheus — scrapes /metrics from backend every 15s
-  prometheus:
-    image: prom/prometheus:v2.50.1
-    container_name: ecommerce_prometheus
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=15d
-      - --web.enable-lifecycle # allows POST /-/reload
-      - --web.console.libraries=/usr/share/prometheus/console_libraries
-      - --web.console.templates=/usr/share/prometheus/consoles
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/rules:/etc/prometheus/rules:ro
-      - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
-    depends_on:
-      - backend
-    restart: unless-stopped
-
-  # Grafana — dashboards that read from Prometheus
-  grafana:
-    image: grafana/grafana:10.4.2
-    container_name: ecommerce_grafana
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_ANALYTICS_REPORTING_ENABLED=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    ports:
-      - "3000:3000"
-    depends_on:
-      - prometheus
-    restart: unless-stopped
-
-  # ============================================
-  # INVOICE NINJA - Billing & Invoicing System
-  # ============================================
-
-  # MySQL Database for Invoice Ninja
-  invoice-ninja-db:
-    image: mysql:8.0
-    container_name: invoice_ninja_db
-    environment:
-      MYSQL_ROOT_PASSWORD: ninja_root_password
-      MYSQL_DATABASE: ninja
-      MYSQL_USER: ninja
-      MYSQL_PASSWORD: ninja_password
-    volumes:
-      - ninja_mysql_data:/var/lib/mysql
-    ports:
-      - "3307:3306"
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "ninja", "-pninja_password" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    command: --default-authentication-plugin=mysql_native_password
-    restart: unless-stopped
-
-  # Invoice Ninja Application
-  invoice-ninja:
-    image: invoiceninja/invoiceninja:5
-    container_name: invoice_ninja_app
-    volumes:
-      - ninja_public:/var/www/app/public
-      - ninja_storage:/var/www/app/storage
-      - ./invoice-ninja/php.ini:/usr/local/etc/php/php.ini:ro
-      - ./invoice-ninja/config:/var/www/app/config-custom:ro
-    ports:
-      - "9000:9000"
-    environment:
-      # App Settings
-      - APP_URL=http://localhost:8080
-      - APP_KEY=base64:O1S3MOTZ5Mv3aB4rPMkOWAx7FjvBevleqvJRe1V+pLk=
-      - APP_ENV=production
-      - APP_DEBUG=false
-      - REQUIRE_HTTPS=false
-      - TRUSTED_PROXIES=*
-
-      # Database
-      - DB_HOST=invoice-ninja-db
-      - DB_PORT=3306
-      - DB_DATABASE=ninja
-      - DB_USERNAME=ninja
-      - DB_PASSWORD=ninja_password
-      - DB_TYPE=mysql
-
-      # Queue & Cache
-      - QUEUE_CONNECTION=database
-      - CACHE_DRIVER=file
-      - SESSION_DRIVER=file
-
-      # Mail (configure for production)
-      - MAIL_MAILER=log
-      - MAIL_HOST=mailhog
-      - MAIL_PORT=1025
-      - MAIL_FROM_ADDRESS=invoices@yourdomain.com
-      - MAIL_FROM_NAME="Your Company"
-
-      # PDF Generation
-      - PDF_GENERATOR=snappdf
-
-      # India GST Settings
-      - DEFAULT_COUNTRY=IN
-      - DEFAULT_CURRENCY=INR
-      - DEFAULT_LOCALE=en_IN
-
-      # Security
-      - PHANTOMJS_PDF_GENERATION=false
-      - SELF_UPDATER_ENABLED=false
-    depends_on:
-      invoice-ninja-db:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Nginx for Invoice Ninja
-  invoice-ninja-web:
-    image: nginx:alpine
-    container_name: invoice_ninja_web
-    volumes:
-      - ninja_public:/var/www/app/public:ro
-      - ./invoice-ninja/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    ports:
-      - "8080:80"
-    depends_on:
-      - invoice-ninja
-    restart: unless-stopped
-
-  # Typesense – lightning-fast search engine
-  typesense:
-    image: typesense/typesense:0.25.2
-    container_name: ecommerce_typesense
-    command: >
-      --data-dir /data --api-key=typesense-dev-key --enable-cors
-    volumes:
-      - typesense_data:/data
-    ports:
-      - "8108:8108"
-    healthcheck:
-      test: [ "CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8108' 2>/dev/null || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-    restart: unless-stopped
-
 volumes:
   postgres_data:
   redis_data:
-  ninja_mysql_data:
-  ninja_public:
-  ninja_storage:
-  typesense_data:
-  celerybeat_data: # Persists Celery Beat schedule across restarts
-  backend_uploads: # Shared uploads volume (backend + worker)
-  backend_logs: # Centralised log directory
-  prometheus_data: # Prometheus time-series data (15-day retention)
-  grafana_data: # Grafana state, users, dashboard edits
+  celerybeat_data:
+  backend_uploads:
+  backend_logs:

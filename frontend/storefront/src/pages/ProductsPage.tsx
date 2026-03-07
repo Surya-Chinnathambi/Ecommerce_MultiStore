@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { productsApi, storeApi } from '@/lib/api'
-import ProductCard from '@/components/ProductCard'
+import ProductCard3D from '@/components/ui/ProductCard3D'
 import SearchFilters, { SearchParams } from '@/components/SearchFilters'
 import { ChevronLeft, ChevronRight, Grid, List, Package, SlidersHorizontal } from 'lucide-react'
 
@@ -146,7 +146,7 @@ export default function ProductsPage() {
                             : "space-y-4"
                         }>
                             {productsData.products.map((product: any) => (
-                                <ProductCard key={product.id} product={product} viewMode={viewMode} />
+                                <ProductCard3D key={product.id} product={product} viewMode={viewMode} />
                             ))}
                         </div>
 

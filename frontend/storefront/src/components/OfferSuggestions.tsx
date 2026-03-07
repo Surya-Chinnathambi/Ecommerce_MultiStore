@@ -246,9 +246,9 @@ export default function OfferSuggestions({ stats }: Props) {
     const navigate = useNavigate()
     const suggestions = useMemo(() => buildSuggestions(stats), [stats])
     const [expanded, setExpanded] = useState<string | null>(null)
-    const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+    const [dismissed, setDismissed] = useState<Set<string>>(new Set<string>())
 
-    const visible = suggestions.filter(s => !dismissed.has(s.id))
+    const visible = suggestions.filter((s: Suggestion) => !dismissed.has(s.id))
     const highCount = visible.filter(s => s.priority === 'high').length
 
     if (visible.length === 0) return null
@@ -270,9 +270,9 @@ export default function OfferSuggestions({ stats }: Props) {
             </div>
 
             <div className="space-y-3">
-                {visible.map(s => {
+                {visible.map((s: Suggestion) => {
                     const p = PRIORITY_CFG[s.priority]
-                    const Icon = s.icon
+                    const Icon: any = s.icon
                     const open = expanded === s.id
                     return (
                         <div
@@ -283,7 +283,7 @@ export default function OfferSuggestions({ stats }: Props) {
                             <div className="flex items-start gap-3">
                                 {/* Icon */}
                                 <div className={`flex-shrink-0 p-2.5 rounded-xl ${CAT_COLORS[s.category]}`}>
-                                    <Icon className="h-5 w-5" />
+                                    <Icon className={"h-5 w-5" as any} />
                                 </div>
 
                                 {/* Body */}

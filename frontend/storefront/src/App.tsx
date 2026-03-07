@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import React, { Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Toaster } from './components/ui/Toaster'
@@ -80,6 +80,27 @@ function SellerRoute({ children }: { children: React.ReactNode }) {
     )
 }
 
+// ── Error Boundary ─────────────────────────────────────────────────────────────
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+    constructor(props: { children: React.ReactNode }) {
+        super(props)
+        this.state = { hasError: false, error: null }
+    }
+    static getDerivedStateFromError(error: Error) { return { hasError: true, error } }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div style={{ padding: '2rem', color: 'red', fontFamily: 'monospace' }}>
+                    <h2>Fatal React Crash</h2>
+                    <pre>{this.state.error?.toString()}</pre>
+                    <pre>{this.state.error?.stack}</pre>
+                </div>
+            )
+        }
+        return this.props.children
+    }
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
     // Resolve store_id on first render
@@ -95,8 +116,9 @@ function App() {
 
     return (
         <>
-            <Suspense fallback={<PageSkeleton />}>
-                <Routes>
+            <ErrorBoundary>
+                <Suspense fallback={<PageSkeleton />}>
+                    <Routes>
                     {/* Default */}
                     <Route path="/" element={<Navigate to="/login" replace />} />
 
@@ -229,6 +251,7 @@ function App() {
                     </Route>
                 </Routes>
             </Suspense>
+            </ErrorBoundary>
             <Toaster />
             <SocialProofNotification />
             <ScrollToTop />

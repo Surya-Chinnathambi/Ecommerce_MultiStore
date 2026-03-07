@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { storeApi } from '@/lib/api'
-import ProductCard from '@/components/ProductCard'
+import ProductCard3D from '@/components/ui/ProductCard3D'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Package, Sparkles, TrendingUp, Shield, Truck, ShoppingBag, Star } from 'lucide-react'
 import PromotionalBanner from '@/components/marketing/PromotionalBanner'
 import FlashSaleTimer from '@/components/marketing/FlashSaleTimer'
 import RecentlyViewed from '@/components/RecentlyViewed'
+import Hero3D from '@/components/ui/Hero3D'
 
 export default function HomePage() {
     useQuery({
@@ -80,25 +81,9 @@ export default function HomePage() {
                             </div>
                         </div>
 
-                        {/* Floating product showcase */}
-                        <div className="hidden lg:flex items-center justify-center relative h-72">
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="h-56 w-56 rounded-full bg-gradient-to-br from-theme-primary/20 to-theme-accent/20 blur-2xl" />
-                            </div>
-                            <div className="relative animate-float flex flex-col items-center gap-4">
-                                <div className="rounded-3xl bg-bg-primary border border-border-color shadow-2xl p-6 flex flex-col items-center gap-3">
-                                    <ShoppingBag className="h-16 w-16 text-theme-primary" />
-                                    <p className="font-bold text-text-primary text-lg">Free Delivery</p>
-                                    <p className="text-sm text-text-secondary">On orders above ₹499</p>
-                                </div>
-                                {/* Floating badges */}
-                                <div className="absolute -top-6 -right-10 rounded-2xl bg-green-500 text-white px-3 py-1.5 text-xs font-bold shadow-lg animate-bounce-in">
-                                    ✓ Verified Sellers
-                                </div>
-                                <div className="absolute -bottom-4 -left-10 rounded-2xl bg-bg-primary border border-border-color px-3 py-1.5 text-xs font-semibold text-text-primary shadow-lg">
-                                    🔒 Secure Payments
-                                </div>
-                            </div>
+                        {/* 3D Hero Visualizer */}
+                        <div className="hidden lg:flex items-center justify-center relative h-[500px] w-full">
+                            <Hero3D />
                         </div>
                     </div>
                 </div>
@@ -150,9 +135,9 @@ export default function HomePage() {
                             </Link>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
-                            {categoriesData.slice(0, 6).map((category: any, idx: number) => (
+                            {categoriesData?.slice(0, 6).map((category: any, idx: number) => (
                                 <Link
-                                    key={category.id}
+                                    key={category?.id || idx}
                                     to={`/products?category_id=${category.id}`}
                                     className="card card-interactive text-center group"
                                     style={{ animationDelay: `${idx * 50}ms` }}
@@ -191,8 +176,8 @@ export default function HomePage() {
                             </Link>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                            {featuredData.map((product: any) => (
-                                <ProductCard key={product.id} product={product} viewMode="grid" />
+                            {featuredData?.map((product: any) => (
+                                <ProductCard3D key={product.id} product={product} viewMode="grid" />
                             ))}
                         </div>
                     </section>
