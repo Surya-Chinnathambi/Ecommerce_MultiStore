@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/components/ui/Toaster'
 import { useState, useEffect } from 'react'
 import QuickViewModal from '@/components/QuickViewModal'
+import FlyToCart from '@/components/animations/FlyToCart'
 
 interface Product {
     id: string
@@ -30,6 +31,7 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
     const [imageLoaded, setImageLoaded] = useState(false)
     const [showQuickView, setShowQuickView] = useState(false)
+    const [triggerFly, setTriggerFly] = useState(false)
 
     useEffect(() => {
         if (isAuthenticated && !isLoaded) fetchWishlist()
@@ -44,6 +46,7 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
         e.stopPropagation()
         if (!product.is_in_stock) { toast.error('This product is out of stock'); return }
         addItem({ product_id: product.id, name: product.name, price: product.selling_price, image: product.thumbnail, max_quantity: product.quantity })
+        setTriggerFly(true)
         toast.success('Added to cart', product.name)
     }
 
@@ -117,12 +120,14 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
     /* ── Grid view ─────────────────────────────────────────────────────── */
     return (
         <div className="group relative">
+            <FlyToCart 
+                trigger={triggerFly} 
+                image={product.thumbnail} 
+                onAnimationComplete={() => setTriggerFly(false)} 
+            />
             <Link
                 to={`/products/${product.id}`}
-                className="block rounded-[var(--radius-2xl)] border border-border-color bg-bg-primary overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:border-border-strong"
-                style={{ boxShadow: 'var(--shadow-sm)' }}
-                onMouseEnter={e => (e.currentTarget.style.boxShadow = 'var(--shadow-lg)')}
-                onMouseLeave={e => (e.currentTarget.style.boxShadow = 'var(--shadow-sm)')}
+                className="block rounded-[var(--radius-2xl)] border border-border-color bg-bg-primary overflow-hidden transition-all duration-300 hover-lift-premium"
             >
                 {/* Image */}
                 <div className="aspect-[4/3] bg-bg-tertiary relative overflow-hidden">

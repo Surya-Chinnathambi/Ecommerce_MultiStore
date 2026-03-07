@@ -12,7 +12,7 @@ import uuid as _uuid
 import re
 
 from app.core.database import get_db, get_read_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_admin, verify_admin_store_access
 from app.schemas.schemas import (
     ProductResponse, ProductListResponse, ProductCreate,
     ProductUpdate, APIResponse
@@ -315,19 +315,16 @@ def _slugify(text: str) -> str:
 async def create_product(
     request: Request,
     product_data: ProductCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     """Create a new product (admin only)."""
-    if current_user.role.value.upper() not in ('ADMIN', 'SUPER_ADMIN'):
-        raise HTTPException(status_code=403, detail="Admin access required")
-
     store_id = request.state.store_id
 
     # Store admin can only create products in their own store
-    if current_user.role.value.upper() != 'SUPER_ADMIN':
-        if not current_user.store_id or str(current_user.store_id) != str(store_id):
-            raise HTTPException(status_code=403, detail="You can only manage your own store's products")
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
+
 
     # Check duplicate external_id
     existing = db.query(Product).filter(
@@ -394,13 +391,10 @@ async def update_product(
     request: Request,
     product_id: UUID,
     updates: ProductUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     """Update product fields (admin only). Only provided fields are changed."""
-    if current_user.role.value.upper() not in ('ADMIN', 'SUPER_ADMIN'):
-        raise HTTPException(status_code=403, detail="Admin access required")
-
     store_id = request.state.store_id
 
     product = db.query(Product).filter(
@@ -411,9 +405,8 @@ async def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
 
     # Store admin ownership check
-    if current_user.role.value.upper() != 'SUPER_ADMIN':
-        if not current_user.store_id or str(current_user.store_id) != str(store_id):
-            raise HTTPException(status_code=403, detail="You can only manage your own store's products")
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
 
     # Apply only provided fields
     update_data = updates.model_dump(exclude_unset=True)
@@ -461,13 +454,10 @@ async def update_product(
 async def delete_product(
     request: Request,
     product_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     """Soft-delete a product by marking it inactive (admin only)."""
-    if current_user.role.value.upper() not in ('ADMIN', 'SUPER_ADMIN'):
-        raise HTTPException(status_code=403, detail="Admin access required")
-
     store_id = request.state.store_id
 
     product = db.query(Product).filter(
@@ -477,9 +467,8 @@ async def delete_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    if current_user.role.value.upper() != 'SUPER_ADMIN':
-        if not current_user.store_id or str(current_user.store_id) != str(store_id):
-            raise HTTPException(status_code=403, detail="You can only manage your own store's products")
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
 
     from datetime import datetime
     product.is_active = False
@@ -503,14 +492,14 @@ async def delete_product(
 async def bulk_update_product_status(
     request: Request,
     payload: dict = Body(..., example={"product_ids": ["uuid1", "uuid2"], "is_active": False}),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     """Bulk activate / deactivate products (admin only)."""
-    if current_user.role.value.upper() not in ('ADMIN', 'SUPER_ADMIN'):
-        raise HTTPException(status_code=403, detail="Admin access required")
-
     store_id = request.state.store_id
+    
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     product_ids = payload.get("product_ids", [])
     is_active = payload.get("is_active")
 

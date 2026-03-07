@@ -1,14 +1,25 @@
 import { useQuery } from '@tanstack/react-query'
 import { storeApi } from '@/lib/api'
 import ProductCard3D from '@/components/ui/ProductCard3D'
-import { Link } from 'react-router-dom'
-import { ArrowRight, Package, Sparkles, TrendingUp, Shield, Truck, ShoppingBag, Star } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { 
+    ArrowRight, 
+    Package, 
+    Sparkles, 
+    TrendingUp, 
+    Shield, 
+    Truck,
+    Star 
+} from 'lucide-react'
 import PromotionalBanner from '@/components/marketing/PromotionalBanner'
 import FlashSaleTimer from '@/components/marketing/FlashSaleTimer'
 import RecentlyViewed from '@/components/RecentlyViewed'
 import Hero3D from '@/components/ui/Hero3D'
+import Button3D from '@/components/ui/Button3D'
 
 export default function HomePage() {
+    const navigate = useNavigate()
+
     useQuery({
         queryKey: ['store-info'],
         queryFn: () => storeApi.getStoreInfo().then(res => res.data.data),
@@ -28,7 +39,6 @@ export default function HomePage() {
         <div className="animate-fade-in">
             {/* ── Hero Section ────────────────────────────────────────── */}
             <section className="relative overflow-hidden bg-gradient-to-br from-theme-primary/8 via-bg-secondary to-theme-accent/8 py-14 md:py-20">
-                {/* Background blobs */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
                     <div className="absolute -top-24 -right-24 h-[480px] w-[480px] rounded-full bg-theme-primary/10 blur-3xl" />
                     <div className="absolute -bottom-24 -left-24 h-[360px] w-[360px] rounded-full bg-theme-accent/10 blur-3xl" />
@@ -36,7 +46,6 @@ export default function HomePage() {
 
                 <div className="container relative z-10 mx-auto px-4">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-                        {/* Copy */}
                         <div>
                             <div className="mb-5 inline-flex animate-bounce-in items-center gap-2 rounded-full border border-theme-primary/20 bg-theme-primary/10 px-3.5 py-1.5 text-sm font-medium text-theme-primary">
                                 <Sparkles className="h-4 w-4" />
@@ -53,18 +62,22 @@ export default function HomePage() {
                                 Thousands of products from trusted stores — fresh arrivals, unbeatable prices, doorstep delivery.
                             </p>
 
-                            <div className="mb-10 flex flex-wrap gap-3">
-                                <Link to="/products" className="btn btn-primary btn-lg shadow-xl shadow-theme-primary/20">
-                                    <ShoppingBag className="h-5 w-5" />
+                            <div className="flex flex-wrap gap-4 pt-4 mb-10">
+                                <Button3D 
+                                    onClick={() => navigate('/products')} 
+                                    className="w-48"
+                                >
                                     Shop Now
-                                </Link>
-                                <Link to="/products" className="btn btn-outline btn-lg">
-                                    Browse Categories
-                                    <ArrowRight className="h-4 w-4" />
-                                </Link>
+                                </Button3D>
+                                <Button3D 
+                                    variant="secondary"
+                                    onClick={() => navigate('/categories')} 
+                                    className="w-48"
+                                >
+                                    View Offers
+                                </Button3D>
                             </div>
 
-                            {/* Trust stats */}
                             <div className="flex flex-wrap gap-8">
                                 {[
                                     { value: '10,000+', label: 'Happy Customers' },
@@ -81,7 +94,6 @@ export default function HomePage() {
                             </div>
                         </div>
 
-                        {/* 3D Hero Visualizer */}
                         <div className="hidden lg:flex items-center justify-center relative h-[500px] w-full">
                             <Hero3D />
                         </div>
@@ -89,16 +101,13 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* Promotional Banner */}
             <div className="mb-8">
                 <PromotionalBanner />
             </div>
 
-            {/* Flash Sales */}
             <FlashSaleTimer />
 
             <div className="container mx-auto px-4 py-12">
-                {/* Value Propositions */}
                 <section className="mb-16">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                         {[
@@ -118,7 +127,6 @@ export default function HomePage() {
                     </div>
                 </section>
 
-                {/* Categories */}
                 {categoriesData && categoriesData.length > 0 && (
                     <section className="mb-16">
                         <div className="flex items-center justify-between mb-8">
@@ -134,29 +142,54 @@ export default function HomePage() {
                                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                             </Link>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
-                            {categoriesData?.slice(0, 6).map((category: any, idx: number) => (
-                                <Link
-                                    key={category?.id || idx}
-                                    to={`/products?category_id=${category.id}`}
-                                    className="card card-interactive text-center group"
-                                    style={{ animationDelay: `${idx * 50}ms` }}
-                                >
-                                    <div className="relative mb-4">
-                                        <div className="aspect-square rounded-2xl bg-gradient-to-br from-theme-primary/10 to-theme-accent/10 flex items-center justify-center group-hover:from-theme-primary/20 group-hover:to-theme-accent/20 transition-all duration-300">
-                                            <Package className="h-10 w-10 md:h-12 md:w-12 text-theme-primary" />
+                        <div className="bento-grid">
+                            {categoriesData?.slice(0, 10).map((category: any, idx: number) => {
+                                const spans = [
+                                    'bento-item-large',
+                                    'bento-item-wide',
+                                    'bento-item-tall',
+                                    '',
+                                    '',
+                                    'bento-item-wide',
+                                ]
+                                const spanClass = spans[idx % spans.length]
+
+                                return (
+                                    <Link
+                                        key={category?.id || idx}
+                                        to={`/products?category_id=${category.id}`}
+                                        className={`card card-interactive group overflow-hidden flex flex-col items-center justify-center p-4 hover-lift-premium ${spanClass}`}
+                                        style={{ animationDelay: `${idx * 50}ms` }}
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-br from-theme-primary/5 to-theme-accent/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        
+                                        <div className="relative z-10 flex flex-col items-center gap-4 text-center">
+                                            <div className={`rounded-2xl bg-theme-primary/10 text-theme-primary group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 flex items-center justify-center
+                                                ${spanClass === 'bento-item-large' ? 'h-20 w-20' : 'h-12 w-12'}
+                                            `}>
+                                                <Package className={`${spanClass === 'bento-item-large' ? 'h-10 w-10' : 'h-6 w-6'}`} />
+                                            </div>
+                                            
+                                            <div>
+                                                <h3 className={`font-bold text-text-primary group-hover:text-theme-primary transition-colors
+                                                    ${spanClass === 'bento-item-large' ? 'text-xl' : 'text-sm md:text-base'}
+                                                `}>
+                                                    {category.name}
+                                                </h3>
+                                                {spanClass && (
+                                                    <p className="text-xs text-text-tertiary mt-1 hidden md:block opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        Browse Collection
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <h3 className="font-semibold text-text-primary group-hover:text-theme-primary transition-colors text-sm md:text-base line-clamp-2">
-                                        {category.name}
-                                    </h3>
-                                </Link>
-                            ))}
+                                    </Link>
+                                )
+                            })}
                         </div>
                     </section>
                 )}
 
-                {/* Featured Products */}
                 {featuredData && featuredData.length > 0 && (
                     <section className="mb-16">
                         <div className="flex items-center justify-between mb-8">
@@ -183,7 +216,6 @@ export default function HomePage() {
                     </section>
                 )}
 
-                {/* CTA Section */}
                 <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-theme-primary to-theme-accent p-8 md:p-12 text-white">
                     <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjEiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYtMi42ODYgNi02cy0yLjY4Ni02LTYtNi02IDIuNjg2LTYgNiAyLjY4NiA2IDYgNnptMCA0OGMzLjMxNCAwIDYtMi42ODYgNi02cy0yLjY4Ni02LTYtNi02IDIuNjg2LTYgNiAyLjY4NiA2IDYgNnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30"></div>
                     <div className="relative z-10 text-center max-w-2xl mx-auto">
@@ -198,7 +230,6 @@ export default function HomePage() {
                     </div>
                 </section>
 
-                {/* ── Recently Viewed ── */}
                 <RecentlyViewed />
             </div>
         </div>

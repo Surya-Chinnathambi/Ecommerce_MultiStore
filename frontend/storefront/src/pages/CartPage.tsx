@@ -1,27 +1,30 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCartStore } from '@/store/cartStore'
 import { Link } from 'react-router-dom'
+import EmptyState3D from '@/components/ui/EmptyState3D'
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Package, ShieldCheck, Truck, Tag, X, Gift } from 'lucide-react'
 import { couponsApi } from '@/lib/api'
 import { toast } from '@/components/ui/Toaster'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
+import Button3D from '@/components/ui/Button3D'
 
 const FREE_SHIPPING_THRESHOLD = 499
 
 export default function CartPage() {
-    const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore()
+    const { items: itemsMap, removeItem, updateQuantity, getTotalPrice, getItemCount, clearCart } = useCartStore()
     const [couponCode, setCouponCode] = useState('')
     const [couponApplied, setCouponApplied] = useState<{ discount: number; code: string } | null>(null)
     const [couponLoading, setCouponLoading] = useState(false)
 
+    const items = Object.values(itemsMap)
     const cartTotal = getTotalPrice()
     const freeShippingRemaining = Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotal)
     const freeShippingProgress = Math.min(100, (cartTotal / FREE_SHIPPING_THRESHOLD) * 100)
     const hasFreeShipping = cartTotal >= FREE_SHIPPING_THRESHOLD
 
     // Trigger confetti when free shipping is hit
-    useState(() => {
+    useEffect(() => {
         if (hasFreeShipping && items.length > 0) {
             confetti({
                 particleCount: 100,
@@ -30,7 +33,7 @@ export default function CartPage() {
                 colors: ['#10B981', '#34D399', '#6EE7B7']
             })
         }
-    })
+    }, [hasFreeShipping, items.length])
 
     const handleCoupon = async () => {
         if (!couponCode.trim()) return
@@ -39,7 +42,7 @@ export default function CartPage() {
             const res = await couponsApi.validate({
                 code: couponCode.trim().toUpperCase(),
                 order_amount: cartTotal,
-                item_count: items.reduce((s, i) => s + i.quantity, 0),
+                item_count: getItemCount(),
             })
             const discount = res.data.data?.discount_amount ?? 0
             setCouponApplied({ discount, code: couponCode.trim().toUpperCase() })
@@ -59,14 +62,19 @@ export default function CartPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="container mx-auto px-4 py-16"
             >
-                <div className="empty-state">
-                    <ShoppingBag className="empty-state-icon" />
-                    <h2 className="empty-state-title">Your cart is empty</h2>
-                    <p className="empty-state-description">Looks like you haven't added anything yet. Start shopping!</p>
-                    <Link to="/products" className="btn btn-primary btn-lg">
-                        <Package className="h-5 w-5" />
-                        <span>Browse Products</span>
-                    </Link>
+                <div>
+                    <EmptyState3D 
+                        title="Your cart is empty" 
+                        description="Looks like you haven't added anything yet. Start shopping!" 
+                    />
+                    <div className="flex justify-center mt-8">
+                        <Link to="/products">
+                            <Button3D className="w-64">
+                                <Package className="h-5 w-5" />
+                                <span>Browse Products</span>
+                            </Button3D>
+                        </Link>
+                    </div>
                 </div>
             </motion.div>
         )
@@ -81,7 +89,7 @@ export default function CartPage() {
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="section-title">Shopping Cart</h1>
-                    <p className="section-subtitle">{items.reduce((sum, item) => sum + item.quantity, 0)} items in your cart</p>
+                    <p className="section-subtitle">{getItemCount()} items in your cart</p>
                 </div>
                 <button
                     onClick={clearCart}
@@ -226,7 +234,7 @@ export default function CartPage() {
                         {/* Summary Details */}
                         <div className="space-y-3">
                             <div className="flex justify-between text-text-secondary">
-                                <span>Subtotal ({items.reduce((sum, item) => sum + item.quantity, 0)} items)</span>
+                                <span>Subtotal ({getItemCount()} items)</span>
                                 <span className="font-medium text-text-primary">₹{getTotalPrice().toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-text-secondary">
@@ -306,14 +314,18 @@ export default function CartPage() {
                         <div className="divider" />
 
                         {/* Actions */}
-                        <div className="space-y-3">
-                            <Link to="/checkout" className="btn btn-primary btn-lg w-full">
-                                <span>Proceed to Checkout</span>
-                                <ArrowRight className="h-5 w-5" />
+                        <div className="space-y-4">
+                            <Link to="/checkout">
+                                <Button3D className="w-full">
+                                    <span>Proceed to Checkout</span>
+                                    <ArrowRight className="h-5 w-5" />
+                                </Button3D>
                             </Link>
 
-                            <Link to="/products" className="btn btn-secondary w-full">
-                                Continue Shopping
+                            <Link to="/products">
+                                <Button3D variant="secondary" className="w-full">
+                                    Continue Shopping
+                                </Button3D>
                             </Link>
                         </div>
                     </div>

@@ -11,65 +11,86 @@ export interface CartItem {
 }
 
 interface CartStore {
-    items: CartItem[]
+    items: Record<string, CartItem>
     addItem: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void
     removeItem: (productId: string) => void
     updateQuantity: (productId: string, quantity: number) => void
     clearCart: () => void
-    getTotalItems: () => number
+    getItemCount: () => number
     getTotalPrice: () => number
 }
 
 export const useCartStore = create<CartStore>()(
     persist(
         (set, get) => ({
-            items: [],
+            items: {},
 
             addItem: (item) => {
-                const items = get().items
-                const existingItem = items.find((i) => i.product_id === item.product_id)
+                const currentItems = get().items
+                const pid = item.product_id
+                const existing = currentItems[pid]
 
-                if (existingItem) {
+                if (existing) {
+                    const newQty = Math.min(existing.quantity + (item.quantity || 1), existing.max_quantity)
                     set({
-                        items: items.map((i) =>
-                            i.product_id === item.product_id
-                                ? { ...i, quantity: Math.min(i.quantity + (item.quantity || 1), i.max_quantity) }
-                                : i
-                        ),
+                        items: {
+                            ...currentItems,
+                            [pid]: { ...existing, quantity: newQty }
+                        }
                     })
                 } else {
                     set({
-                        items: [...items, { ...item, quantity: item.quantity || 1 }],
+                        items: {
+                            ...currentItems,
+                            [pid]: { ...item, quantity: item.quantity || 1 }
+                        }
                     })
                 }
             },
 
             removeItem: (productId) => {
-                set({ items: get().items.filter((i) => i.product_id !== productId) })
+                const newItems = { ...get().items }
+                delete newItems[productId]
+                set({ items: newItems })
             },
 
             updateQuantity: (productId, quantity) => {
+                const currentItems = get().items
+                const item = currentItems[productId]
+                if (!item) return
+
                 if (quantity <= 0) {
                     get().removeItem(productId)
                 } else {
                     set({
-                        items: get().items.map((i) =>
-                            i.product_id === productId
-                                ? { ...i, quantity: Math.min(quantity, i.max_quantity) }
-                                : i
-                        ),
+                        items: {
+                            ...currentItems,
+                            [productId]: { ...item, quantity: Math.min(quantity, item.max_quantity) }
+                        }
                     })
                 }
             },
 
-            clearCart: () => set({ items: [] }),
+            clearCart: () => set({ items: {} }),
 
-            getTotalItems: () => get().items.reduce((sum, item) => sum + item.quantity, 0),
+            getItemCount: () => Object.values(get().items).reduce((sum, item) => sum + item.quantity, 0),
 
-            getTotalPrice: () => get().items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+            getTotalPrice: () => Object.values(get().items).reduce((sum, item) => sum + item.price * item.quantity, 0),
         }),
         {
             name: 'cart-storage',
+            // Migration: Convert old array-based storage to object-based
+            migrate: (persistedState: any, version: number) => {
+                if (Array.isArray(persistedState.items)) {
+                    const normalized: Record<string, CartItem> = {}
+                    persistedState.items.forEach((item: CartItem) => {
+                        normalized[item.product_id] = item
+                    })
+                    return { ...persistedState, items: normalized }
+                }
+                return persistedState
+            },
+            version: 1,
         }
     )
 )

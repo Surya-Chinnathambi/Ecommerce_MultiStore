@@ -14,7 +14,7 @@ import io
 from app.core.database import get_db
 from app.models.analytics_models import DailyAnalytics, ProductAnalytics, InventoryAlert
 from app.models.models import Order, OrderItem, Product, Store
-from app.models.auth_models import User
+from app.core.security import get_current_user, get_current_admin, verify_admin_store_access
 from app.models.review_models import ProductReview
 from app.schemas.review_analytics_schemas import (
     DailyAnalyticsResponse, ProductAnalyticsResponse,
@@ -30,18 +30,14 @@ router = APIRouter()
 
 @router.get("/dashboard", response_model=DashboardStats)
 async def get_dashboard_stats(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     store_id: UUID = Depends(get_current_store_id),
     db: Session = Depends(get_db)
 ):
     """Get comprehensive dashboard statistics"""
     
-    # Verify user is admin
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can access dashboard"
-        )
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     
     today = datetime.utcnow().date()
     yesterday = today - timedelta(days=1)
@@ -186,17 +182,14 @@ async def get_dashboard_stats(
 @router.get("/sales-chart", response_model=SalesChartData)
 async def get_sales_chart_data(
     days: int = Query(30, ge=7, le=90),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     store_id: UUID = Depends(get_current_store_id),
     db: Session = Depends(get_db)
 ):
     """Get sales chart data for specified number of days"""
     
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can access analytics"
-        )
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     
     end_date = datetime.utcnow().date()
     start_date = end_date - timedelta(days=days)
@@ -258,17 +251,14 @@ async def get_sales_chart_data(
 async def get_inventory_alerts(
     resolved: Optional[bool] = Query(None),
     alert_type: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     store_id: UUID = Depends(get_current_store_id),
     db: Session = Depends(get_db)
 ):
-    """Get inventory alerts"""
+    """Get inventory alerts (admin only)"""
     
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can access alerts"
-        )
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     
     query = db.query(InventoryAlert).filter(
         InventoryAlert.store_id == store_id
@@ -298,11 +288,14 @@ async def get_inventory_alerts(
 @router.post("/inventory-alerts", response_model=InventoryAlertResponse, status_code=status.HTTP_201_CREATED)
 async def create_inventory_alert(
     alert_data: InventoryAlertCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     store_id: UUID = Depends(get_current_store_id),
     db: Session = Depends(get_db)
 ):
-    """Create an inventory alert (typically called by system)"""
+    """Create an inventory alert (admin only)"""
+    
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     
     # Check if alert already exists and is unresolved
     existing = db.query(InventoryAlert).filter(
@@ -334,17 +327,14 @@ async def create_inventory_alert(
 @router.put("/inventory-alerts/{alert_id}/resolve", response_model=InventoryAlertResponse)
 async def resolve_inventory_alert(
     alert_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     store_id: UUID = Depends(get_current_store_id),
     db: Session = Depends(get_db)
 ):
-    """Mark an inventory alert as resolved"""
+    """Mark an inventory alert as resolved (admin only)"""
     
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can resolve alerts"
-        )
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     
     alert = db.query(InventoryAlert).filter(
         InventoryAlert.id == alert_id,
@@ -370,17 +360,14 @@ async def resolve_inventory_alert(
 async def get_product_analytics(
     product_id: UUID,
     days: int = Query(30, ge=7, le=90),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     store_id: UUID = Depends(get_current_store_id),
     db: Session = Depends(get_db)
 ):
-    """Get analytics for a specific product"""
+    """Get analytics for a specific product (admin only)"""
     
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can access analytics"
-        )
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     
     end_date = datetime.utcnow().date()
     start_date = end_date - timedelta(days=days)
@@ -399,15 +386,15 @@ async def get_product_analytics(
 @router.get("/revenue-by-category", response_model=APIResponse)
 async def revenue_by_category(
     days: int = Query(30, ge=7, le=90),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     store_id: UUID = Depends(get_current_store_id),
     db: Session = Depends(get_db),
 ):
     """Revenue and units sold broken down by product category (last N days)."""
     from app.models.models import Category
 
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
 
     since = datetime.utcnow().date() - timedelta(days=days)
 
@@ -449,7 +436,7 @@ async def revenue_by_category(
 @router.get("/customer-retention", response_model=APIResponse)
 async def customer_retention(
     months: int = Query(6, ge=2, le=12),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     store_id: UUID = Depends(get_current_store_id),
     db: Session = Depends(get_db),
 ):
@@ -458,8 +445,8 @@ async def customer_retention(
     Returns a list of monthly buckets with: new_customers, returning_customers,
     retention_rate.
     """
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
 
     today = datetime.utcnow().date()
     result = []
@@ -529,15 +516,15 @@ async def customer_retention(
 
 @router.get("/search-terms", response_model=APIResponse)
 async def search_term_analytics(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     store_id: UUID = Depends(get_current_store_id),
     db: Session = Depends(get_db),
 ):
     """Top search queries for this store (sourced from Redis via SearchService)."""
     from app.services.search_service import SearchService
 
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
 
     svc = SearchService(db)
     data = await svc.get_search_analytics(str(store_id))
@@ -550,13 +537,13 @@ async def search_term_analytics(
 async def export_orders_csv(
     days: int = Query(30, ge=1, le=365),
     order_status: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     store_id: UUID = Depends(get_current_store_id),
     db: Session = Depends(get_db),
 ):
     """Stream a CSV file with all orders for the given period."""
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
 
     since = datetime.utcnow() - timedelta(days=days)
 

@@ -1,8 +1,10 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { productsApi, pincodeApi } from '@/lib/api'
-import { ShoppingCart, Package, Minus, Plus, ArrowLeft, Heart, Share2, Truck, Shield, RotateCcw, Check, Star, MapPin, Bell } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { ShoppingCart, Package, Minus, Plus, ArrowLeft, Heart, Share2, Truck, Shield, RotateCcw, Check, Star, MapPin, Bell, Sparkles } from 'lucide-react'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import ProductCanvas from '@/components/ui/ProductCanvas'
+import Loader3D from '@/components/ui/Loader3D'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { useAuthStore } from '@/store/authStore'
@@ -16,6 +18,7 @@ export default function ProductDetailPage() {
     const { productId } = useParams()
     const [quantity, setQuantity] = useState(1)
     const [selectedImage, setSelectedImage] = useState(0)
+    const [view3D, setView3D] = useState(false)
     const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
     const [pincode, setPincode] = useState('')
     const [deliveryInfo, setDeliveryInfo] = useState<any>(null)
@@ -188,18 +191,54 @@ export default function ProductDetailPage() {
                         {/* Product Images */}
                         <div className="p-6 md:p-8 bg-bg-tertiary/30">
                             {/* Main Image */}
-                            <div className="aspect-square bg-bg-primary rounded-2xl overflow-hidden relative group shadow-lg">
-                                {images.length > 0 ? (
-                                    <img
-                                        src={images[selectedImage]}
-                                        alt={productData.name}
-                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                    />
+                            <div className="aspect-square bg-bg-primary rounded-2xl overflow-hidden relative group shadow-lg border border-border-color">
+                                {!view3D ? (
+                                    <>
+                                        {images.length > 0 ? (
+                                            <img
+                                                src={images[selectedImage]}
+                                                alt={productData.name}
+                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-text-tertiary">
+                                                <Package className="h-24 w-24" />
+                                            </div>
+                                        )}
+                                    </>
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-text-tertiary">
-                                        <Package className="h-24 w-24" />
+                                    <div className="w-full h-full relative">
+                                        <Suspense fallback={<Loader3D />}>
+                                            <ProductCanvas 
+                                                imageUrl={productData.thumbnail} 
+                                                shape={productData.category_name?.toLowerCase().includes('shirt') ? 'box' : 'sphere'}
+                                                color="#8B5CF6"
+                                            />
+                                        </Suspense>
+                                        <div className="absolute bottom-4 left-4 right-4 text-center pointer-events-none">
+                                            <p className="inline-block px-3 py-1 bg-black/50 backdrop-blur-md rounded-full text-[10px] text-white/80 uppercase tracking-widest">
+                                                Interactive 3D Preview
+                                            </p>
+                                        </div>
                                     </div>
                                 )}
+
+                                {/* Preview Switcher */}
+                                <div className="absolute bottom-4 right-4 flex gap-2">
+                                    <button 
+                                        onClick={() => setView3D(false)}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-lg ${!view3D ? 'bg-theme-primary text-white' : 'bg-white/90 text-text-primary hover:bg-white'}`}
+                                    >
+                                        2D
+                                    </button>
+                                    <button 
+                                        onClick={() => setView3D(true)}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-lg ${view3D ? 'bg-theme-primary text-white' : 'bg-white/90 text-text-primary hover:bg-white'}`}
+                                    >
+                                        <Sparkles className="h-3 w-3" />
+                                        3D
+                                    </button>
+                                </div>
 
                                 {/* Badges */}
                                 <div className="absolute top-4 left-4 flex flex-col gap-2">

@@ -11,7 +11,7 @@ from datetime import datetime
 import logging
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_admin
 from app.models.auth_models import User, UserRole
 from app.models.marketplace_models import (
     Seller, SellerProduct, SellerPayout,
@@ -383,7 +383,7 @@ async def admin_list_sellers(
     status_filter: Optional[str] = None,
     page: int = 1,
     per_page: int = 20,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     if current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN):
@@ -403,7 +403,7 @@ async def admin_list_sellers(
 async def admin_approve_seller(
     seller_id: UUID,
     payload: dict = {},
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     if current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN):

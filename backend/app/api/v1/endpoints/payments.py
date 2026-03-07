@@ -62,6 +62,7 @@ async def create_payment_intent(
             user_id=user_id,
             payment_data=payment_data
         )
+        db.commit()
         
         logger.info(f"Payment intent created: {result.payment_id} for order {payment_data.order_id}")
         return result
@@ -81,6 +82,7 @@ async def create_payment_intent(
 
 @router.post("/confirm", response_model=PaymentResponse)
 async def confirm_payment(
+    request: Request,
     payment_confirm: PaymentConfirm,
     db: Session = Depends(get_db)
 ):
@@ -96,8 +98,10 @@ async def confirm_payment(
             db=db,
             payment_id=payment_confirm.payment_id,
             gateway_payment_id=payment_confirm.gateway_payment_id,
+            store_id=request.state.store_id,
             gateway_signature=payment_confirm.gateway_signature
         )
+        db.commit()
         
         logger.info(f"Payment confirmed: {payment_confirm.payment_id}")
         return result
@@ -247,6 +251,7 @@ async def create_refund(
             user_id=current_user.id,
             refund_data=refund_data
         )
+        db.commit()
         
         logger.info(f"Refund created: {result['refund_id']} for payment {refund_data.payment_id}")
         
@@ -365,8 +370,10 @@ async def stripe_webhook(
                     await payment_service.confirm_payment(
                         db=db,
                         payment_id=UUID(payment_id),
-                        gateway_payment_id=payment_intent["id"]
+                        gateway_payment_id=payment_intent["id"],
+                        store_id=payment.store_id
                     )
+                    db.commit()
         
         elif event_type == "payment_intent.payment_failed":
             # Payment failed
@@ -434,11 +441,15 @@ async def razorpay_webhook(
             payment_id = notes.get("payment_id")
             
             if payment_id:
-                await payment_service.confirm_payment(
-                    db=db,
-                    payment_id=UUID(payment_id),
-                    gateway_payment_id=payment_entity["id"]
-                )
+                payment = db.query(Payment).filter(Payment.id == UUID(payment_id)).first()
+                if payment:
+                    await payment_service.confirm_payment(
+                        db=db,
+                        payment_id=UUID(payment_id),
+                        gateway_payment_id=payment_entity["id"],
+                        store_id=payment.store_id
+                    )
+                    db.commit()
         
         elif event_type == "payment.failed":
             # Payment failed

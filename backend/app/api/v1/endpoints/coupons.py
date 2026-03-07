@@ -11,7 +11,7 @@ from datetime import datetime
 import logging
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_admin, verify_admin_store_access
 from app.models.auth_models import User, UserRole
 from app.models.marketplace_models import Coupon, CouponUsage, CouponType
 from app.schemas.schemas import APIResponse
@@ -173,13 +173,16 @@ async def admin_list_coupons(
     active_only: bool = False,
     page: int = 1,
     per_page: int = 20,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     if current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN):
         raise HTTPException(status_code=403, detail="Admin only")
 
     store_id = request.state.store_id
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
+    
     query = db.query(Coupon).filter(Coupon.store_id == store_id)
     if active_only:
         query = query.filter(Coupon.is_active == True)
@@ -197,13 +200,12 @@ async def admin_list_coupons(
 async def create_coupon(
     request: Request,
     payload: dict,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN):
-        raise HTTPException(status_code=403, detail="Admin only")
-
     store_id = request.state.store_id
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     code = (payload.get("code") or "").upper().strip()
     if not code:
         raise HTTPException(status_code=422, detail="code is required")
@@ -259,7 +261,7 @@ async def create_coupon(
 async def update_coupon(
     coupon_id: UUID,
     payload: dict,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     if current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN):
@@ -291,7 +293,7 @@ async def update_coupon(
 @router.delete("/{coupon_id}", response_model=APIResponse, summary="[Admin] Deactivate coupon")
 async def deactivate_coupon(
     coupon_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     if current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN):

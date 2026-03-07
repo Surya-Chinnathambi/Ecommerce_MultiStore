@@ -6,11 +6,17 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ecommerce_platform
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce_platform}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # No direct ports for DB; reachable via internal network only
+    # ports:
+    #   - "5432:5432"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
@@ -73,8 +79,13 @@ services:
       - ./backend:/app
       - backend_uploads:/app/uploads
       - backend_logs:/app/logs
-    ports:
-      - "8000:8000" # Direct access for dev; in prod traffic comes via nginx
+    # ports:
+    #   - "8000:8000" # Traffic strictly via Nginx in semi-prod/hardened mode
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1G
     depends_on:
       db:
         condition: service_healthy

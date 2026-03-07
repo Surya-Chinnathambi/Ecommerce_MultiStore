@@ -1,4 +1,4 @@
-﻿"""
+"""
 Order API Endpoints
 Handle customer orders and order management
 Like Amazon/Flipkart order management system
@@ -10,11 +10,12 @@ from typing import Optional, List
 from datetime import datetime
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_admin, verify_admin_store_access
 from app.models.auth_models import User
 from app.models.models import Order, OrderItem, Product, Store
 from app.schemas.schemas import APIResponse, OrderResponse
 from app.services.websocket_manager import notify_order_update
+from app.services.order_service import get_order_service
 
 router = APIRouter()
 
@@ -26,7 +27,7 @@ async def get_admin_orders(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -35,20 +36,12 @@ async def get_admin_orders(
     - Search by order number, customer info
     - Pagination
     """
-    # Check if user is admin
-    if current_user.role.value.upper() not in ['ADMIN', 'SUPER_ADMIN']:
+    # Store admins must only access their own store
+    if not verify_admin_store_access(current_user, store_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only store admins can access this endpoint"
+            detail="Not authorized for this store"
         )
-
-    # Store admins must only access their own store
-    if current_user.role.value.upper() != 'SUPER_ADMIN':
-        if not current_user.store_id or str(current_user.store_id) != str(store_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only access orders for your own store"
-            )
     
     # Verify store exists
     store = db.query(Store).filter(Store.id == store_id).first()
@@ -129,20 +122,12 @@ async def get_admin_orders(
 @router.get("/admin/stats", response_model=APIResponse)
 async def get_order_stats(
     store_id: str = Query(..., description="Store ID"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """Get order statistics for admin dashboard"""
-    if current_user.role.value.upper() not in ['ADMIN', 'SUPER_ADMIN']:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    # Store admins must only access their own store
-    if current_user.role.value.upper() != 'SUPER_ADMIN':
-        if not current_user.store_id or str(current_user.store_id) != str(store_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only access stats for your own store"
-            )
+    if not verify_admin_store_access(current_user, store_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     
     # Get order counts by status
     status_counts = db.query(
@@ -266,7 +251,7 @@ async def get_customer_orders(
 async def update_order_status(
     order_id: str,
     order_status: str = Query(..., description="New order status"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """Update order status (admin only) - like Flipkart order processing"""
@@ -286,19 +271,22 @@ async def update_order_status(
         raise HTTPException(status_code=404, detail="Order not found")
 
     # Store admins must only update orders within their own store.
-    if current_user.role.value.upper() != 'SUPER_ADMIN':
-        if not current_user.store_id or str(order.store_id) != str(current_user.store_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only update orders for your own store"
-            )
+    if not verify_admin_store_access(current_user, str(order.store_id)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized for this store"
+        )
     
     old_status = order.order_status
-    order.order_status = order_status
-    order.updated_at = datetime.now()
     
-    db.commit()
-    db.refresh(order)
+    service = get_order_service(db)
+    try:
+        order = service.update_order_status(order.id, order_status)
+        db.commit()
+        db.refresh(order)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Push live update to store admin WebSocket channel
     try:

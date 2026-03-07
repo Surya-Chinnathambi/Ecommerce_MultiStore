@@ -23,6 +23,7 @@ from app.models.marketplace_models import PincodeDelivery, Coupon, CouponUsage, 
 from app.models.review_models import ProductReview
 from app.core.redis import redis_client, CacheKeys
 from app.core.config import settings
+from app.services.order_service import get_order_service
 
 logger = logging.getLogger(__name__)
 
@@ -337,238 +338,50 @@ async def create_order(
 ):
     """
     Create a new order from checkout
-    
-    Expected order_data:
-    {
-        "customer_name": str,
-        "customer_phone": str,
-        "customer_email": str (optional),
-        "delivery_address": str,
-        "delivery_city": str,
-        "delivery_state": str,
-        "delivery_pincode": str,
-        "delivery_landmark": str (optional),
-        "notes": str (optional),
-        "payment_method": str (COD/ONLINE),
-        "items": [{"product_id": str, "quantity": int, "price": float}]
-    }
     """
     store_id = request.state.store_id
-    
-    # Validate store exists
-    store = db.query(Store).filter(Store.id == store_id).first()
-    if not store or not store.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Store not found"
-        )
-    
-    # Extract order items
-    items_data = order_data.get('items', [])
-    if not items_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Order must contain at least one item"
-        )
-    
-    # Fetch products and calculate totals
-    subtotal = 0
-    items_with_prices = []
-    
-    for item_data in items_data:
-        product = db.query(Product).filter(
-            Product.id == item_data['product_id'],
-            Product.store_id == store_id
-        ).first()
-        
-        if not product:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product {item_data['product_id']} not found"
-            )
-        
-        # Check stock
-        if product.quantity < item_data['quantity']:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Insufficient stock for {product.name}"
-            )
-        
-        item_price = product.selling_price
-        item_subtotal = item_price * item_data['quantity']
-        subtotal += item_subtotal
-        
-        items_with_prices.append({
-            'product': product,
-            'quantity': item_data['quantity'],
-            'price': item_price,
-            'subtotal': item_subtotal
-        })
-    
-    # Calculate totals
-    tax = subtotal * 0.18  # 18% GST
-    shipping_cost = 0.0 if subtotal > 500 else 50.0  # Free shipping above ₹500
-    discount_amount = 0.0
-    free_shipping = False
-    applied_coupon = None
-
-    # ── Coupon handling ───────────────────────────────────────────────────────
-    coupon_code = (order_data.get('coupon_code') or '').upper().strip()
-    if coupon_code:
-        coupon = db.query(Coupon).filter(
-            func.upper(Coupon.code) == coupon_code,
-            Coupon.store_id == store_id,
-            Coupon.is_active == True,
-        ).first()
-        if coupon:
-            now = datetime.utcnow()
-            coupon_valid = (
-                (not coupon.valid_from or coupon.valid_from <= now) and
-                (not coupon.valid_until or coupon.valid_until >= now) and
-                (not coupon.usage_limit or coupon.used_count < coupon.usage_limit) and
-                (not coupon.min_order_amount or subtotal >= coupon.min_order_amount)
-            )
-            if coupon.per_user_limit and current_user:
-                user_usage = db.query(func.count(CouponUsage.id)).filter(
-                    CouponUsage.coupon_id == coupon.id,
-                    CouponUsage.user_id == current_user.id,
-                ).scalar() or 0
-                coupon_valid = coupon_valid and (user_usage < coupon.per_user_limit)
-
-            if coupon_valid:
-                item_count = sum(i['quantity'] for i in items_with_prices)
-                if coupon.type == CouponType.PERCENT:
-                    discount_amount = subtotal * (coupon.value / 100.0)
-                    if coupon.max_discount_amount:
-                        discount_amount = min(discount_amount, coupon.max_discount_amount)
-                elif coupon.type == CouponType.FLAT:
-                    discount_amount = min(coupon.value, subtotal)
-                elif coupon.type == CouponType.FREE_SHIPPING:
-                    free_shipping = True
-                elif coupon.type == CouponType.BUY_X_GET_Y:
-                    buy_x = coupon.buy_quantity or 1
-                    get_y = coupon.get_quantity or 1
-                    sets = item_count // (buy_x + get_y) if (buy_x + get_y) else 0
-                    if sets > 0 and item_count:
-                        per_item = subtotal / item_count
-                        discount_amount = per_item * get_y * sets
-                discount_amount = round(discount_amount, 2)
-                if free_shipping:
-                    shipping_cost = 0.0
-                applied_coupon = coupon
-
-    total = subtotal + tax + (0.0 if free_shipping else shipping_cost) - discount_amount
-    total = max(total, 0)
-
-    # Generate order number
-    order_number = f"ORD-{''.join(random.choices(string.ascii_uppercase + string.digits, k=8))}"
-    
-    # Resolve customer email — prefer explicit form value, fall back to logged-in user email
-    customer_email = (order_data.get('customer_email') or '').strip() or (current_user.email if current_user else None)
-
-    payment_method = order_data.get('payment_method', 'COD').upper()
-    # COD orders are immediately accounted for; online orders start as pending
-    initial_payment_status = PaymentStatus.COD if payment_method == 'COD' else PaymentStatus.PENDING
-
-    # Create order
-    order = Order(
-        store_id=store_id,
-        order_number=order_number,
-        user_id=current_user.id if current_user else None,
-        customer_name=order_data.get('customer_name'),
-        customer_email=customer_email,
-        customer_phone=order_data.get('customer_phone'),
-        delivery_address=order_data.get('delivery_address'),
-        delivery_city=order_data.get('delivery_city'),
-        delivery_state=order_data.get('delivery_state'),
-        delivery_pincode=order_data.get('delivery_pincode'),
-        delivery_landmark=order_data.get('delivery_landmark'),
-        notes=order_data.get('notes'),
-        payment_method=payment_method,
-        subtotal=subtotal,
-        tax_amount=tax,
-        delivery_charge=shipping_cost,
-        total_amount=total,
-        order_status=OrderStatus.PENDING,
-        payment_status=initial_payment_status
-    )
-    
-    db.add(order)
-    db.flush()  # Get order ID
-    
-    # Create order items and update inventory
-    for item_info in items_with_prices:
-        product = item_info['product']
-        
-        item_total = item_info['subtotal']
-        
-        # Create order item
-        order_item = OrderItem(
-            order_id=order.id,
-            product_id=product.id,
-            product_name=product.name,
-            quantity=item_info['quantity'],
-            unit_price=item_info['price'],
-            subtotal=item_info['subtotal'],
-            total=item_total
-        )
-        db.add(order_item)
-        
-        # Update product quantity
-        product.quantity -= item_info['quantity']
-        if product.quantity == 0:
-            product.is_in_stock = False
-    
-    db.commit()
-    db.refresh(order)
-
-    # ── Record coupon usage after order is persisted ──────────────────────────
-    if applied_coupon:
-        try:
-            usage = CouponUsage(
-                coupon_id=applied_coupon.id,
-                user_id=current_user.id if current_user else None,
-                order_id=order.id,
-                store_id=store_id,
-                discount_applied=discount_amount,
-            )
-            db.add(usage)
-            applied_coupon.used_count = (applied_coupon.used_count or 0) + 1
-            db.commit()
-        except Exception as e:
-            logger.warning(f"Coupon usage recording failed for order {order_number}: {e}")
-
-    # ── Notify store admins via WebSocket ─────────────────────────────────────
+    service = get_order_service(db)
     try:
-        from app.services.websocket_manager import notify_new_order
-        await notify_new_order(
-            store_id=str(store_id),
-            order_id=str(order.id),
-            order_number=order_number,
-            total_amount=float(total),
-            customer_name=order_data.get('customer_name', '')
+        order = await service.create_order(
+            store_id=store_id,
+            user_id=current_user.id if current_user else None,
+            order_data=order_data
         )
-    except Exception:
-        pass  # Non-critical
+        db.commit()
+        db.refresh(order)
+        
+        # Async notification
+        try:
+            from app.services.websocket_manager import notify_new_order
+            await notify_new_order(
+                store_id=str(store_id),
+                order_id=str(order.id),
+                order_number=order.order_number,
+                total_amount=float(order.total_amount),
+                customer_name=order.customer_name or ""
+            )
+        except Exception:
+            pass
 
-    logger.info(f"Order {order_number} created for store {store_id}")
-    
-    return APIResponse(
-        success=True,
-        data={
-            "order_number": order_number,
-            "order_id": str(order.id),
-            "subtotal": subtotal,
-            "discount_amount": discount_amount,
-            "tax": tax,
-            "shipping_cost": shipping_cost,
-            "total": total,
-            "coupon_applied": applied_coupon.code if applied_coupon else None,
-            "status": order.order_status.value,
-            "created_at": order.created_at.isoformat()
-        },
-        meta={"message": "Order placed successfully"}
-    )
+        return APIResponse(
+            success=True,
+            data={
+                "order_number": order.order_number,
+                "order_id": str(order.id),
+                "subtotal": float(order.subtotal),
+                "total": float(order.total_amount),
+                "status": order.order_status.value if hasattr(order.order_status, "value") else order.order_status,
+                "created_at": order.created_at.isoformat()
+            },
+            message="Order placed successfully"
+        )
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Order creation failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to place order")
 
 
 @router.get("/orders/{order_number}", response_model=APIResponse)
@@ -591,6 +404,14 @@ async def get_order_details(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Order not found"
         )
+    
+    # Ownership check
+    is_owner = (order.user_id == current_user.id) or (order.customer_email == current_user.email)
+    if not is_owner:
+        # Check if admin/superadmin (they can view any order)
+        from app.models.auth_models import UserRole
+        if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            raise HTTPException(status_code=403, detail="Not authorized to view this order")
     
     # Get order items
     items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
@@ -631,9 +452,15 @@ async def get_order_details(
 async def track_order(
     request: Request,
     order_number: str,
+    email: Optional[str] = Query(None, description="Verify email for guest tracking"),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_read_db)
 ):
-    """Track order status - returns full order details for payment and tracking"""
+    """
+    Track order status
+    - Returns full details if authenticated owner
+    - Returns basic status if guest provides matching email
+    """
     store_id = request.state.store_id
     
     order = db.query(Order).options(
@@ -649,6 +476,31 @@ async def track_order(
             detail="Order not found"
         )
     
+    # Permission check
+    is_authorized = False
+    if current_user:
+        from app.models.auth_models import UserRole
+        if order.user_id == current_user.id or order.customer_email == current_user.email:
+            is_authorized = True
+        elif current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            is_authorized = True
+    
+    if not is_authorized and email:
+        if order.customer_email.lower() == email.lower():
+            is_authorized = True
+
+    if not is_authorized:
+        # If not authorized, ONLY return status, hide PII
+        return APIResponse(
+            success=True,
+            data={
+                "order_number": order.order_number,
+                "order_status": order.order_status.value if hasattr(order.order_status, "value") else order.order_status,
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+                "message": "Full details hidden. Provide email or login to see more."
+            }
+        )
+
     # Return full order details
     return APIResponse(
         success=True,

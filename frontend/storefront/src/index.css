@@ -7,55 +7,38 @@
    Inspired by Stripe, Linear, Vercel, Shopify
    ============================================================ */
 
-:root {
-    /* Typography */
-    --font-sans: 'Inter', 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    --font-mono: 'Geist Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+:root {    /* Typography Scale */
+    --text-xs: 0.75rem;     /* 12px */
+    --text-sm: 0.875rem;    /* 14px */
+    --text-base: 1rem;      /* 16px */
+    --text-lg: 1.125rem;    /* 18px */
+    --text-xl: 1.25rem;     /* 20px */
+    --text-2xl: 1.5rem;     /* 24px */
+    --text-3xl: 1.875rem;   /* 30px */
+    --text-4xl: 2.25rem;    /* 36px */
+    --text-5xl: 3rem;       /* 48px */
+    --text-6xl: 3.75rem;    /* 60px */
 
-    /* Light Theme */
-    --bg-primary: 255 255 255;
-    --bg-secondary: 248 249 252;
-    --bg-tertiary: 241 243 249;
-    --bg-elevated: 255 255 255;
-
-    --text-primary: 15 23 42;
-    --text-secondary: 71 85 105;
-    --text-tertiary: 148 163 184;
-    --text-quaternary: 203 213 225;
-
-    --border-color: 226 232 240;
-    --border-strong: 203 213 225;
-
-    --primary: 99 102 241;
-    /* Indigo-500 � premium SaaS tone */
-    --primary-hover: 79 70 229;
-    /* Indigo-600 */
-    --accent: 139 92 246;
-    /* Violet-500 */
-
-    --success: 16 185 129;
-    --success-bg: 236 253 245;
-    --warning: 245 158 11;
-    --warning-bg: 255 251 235;
-    --error: 239 68 68;
-    --error-bg: 254 242 242;
-    --info: 59 130 246;
-    --info-bg: 239 246 255;
-
-    /* Elevation shadows */
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.04);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.04);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.04);
-    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.15);
+    /* 8pt Spacing System */
+    --space-1: 0.25rem;     /* 4px */
+    --space-2: 0.5rem;      /* 8px */
+    --space-3: 0.75rem;     /* 12px */
+    --space-4: 1rem;        /* 16px */
+    --space-5: 1.25rem;     /* 20px */
+    --space-6: 1.5rem;      /* 24px */
+    --space-8: 2rem;        /* 32px */
+    --space-10: 2.5rem;     /* 40px */
+    --space-12: 3rem;       /* 48px */
+    --space-16: 4rem;       /* 64px */
+    --space-20: 5rem;       /* 80px */
+    --space-24: 6rem;       /* 96px */
 
     /* Radius */
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
-    --radius-xl: 18px;
-    --radius-2xl: 24px;
+    --radius-sm: 8px;       /* Refined for 8pt grid */
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-2xl: 28px;
     --radius-full: 9999px;
 }
 
@@ -722,13 +705,54 @@ body {
         -webkit-box-orient: vertical;
     }
 
-    /* Hover lift */
-    .hover-lift {
-        @apply transition-all duration-200 hover:-translate-y-0.5;
+    /* Hover lift premium */
+    .hover-lift-premium {
+        @apply transition-all duration-300;
     }
 
-    .hover-lift:hover {
-        box-shadow: var(--shadow-lg);
+    .hover-lift-premium:hover {
+        @apply -translate-y-1.5;
+        box-shadow: 0 20px 40px -12px rgb(var(--primary) / 0.15),
+                    0 10px 20px -8px rgb(var(--accent) / 0.1),
+                    var(--shadow-xl);
+    }
+
+    /* Bento Grid */
+    .bento-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-auto-rows: 180px;
+        gap: var(--space-4);
+    }
+
+    @media (min-width: 768px) {
+        .bento-grid {
+            grid-template-columns: repeat(4, 1fr);
+            grid-auto-rows: 220px;
+            gap: var(--space-6);
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .bento-grid {
+            grid-template-columns: repeat(6, 1fr);
+            grid-auto-rows: 240px;
+        }
+    }
+
+    .bento-item-large {
+        grid-column: span 2;
+        grid-row: span 2;
+    }
+
+    .bento-item-wide {
+        grid-column: span 2;
+        grid-row: span 1;
+    }
+
+    .bento-item-tall {
+        grid-column: span 1;
+        grid-row: span 2;
     }
 
     /* Responsive containers */

@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
@@ -19,10 +19,11 @@ from app.core.security import (
     generate_password_reset_token,
     blacklist_token,
     check_account_locked,
-    record_failed_login,
     clear_failed_logins,
     generate_api_key,
     hash_api_key,
+    create_token_pair,
+    rotate_refresh_token,
 )
 from app.models.auth_models import User, UserRole, Address, APIKey
 from app.models.models import Store, Order
@@ -83,11 +84,10 @@ def register_customer(user_data: UserRegister, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     
-    access_token = create_access_token(
-        data={"sub": str(user.id), "role": user.role.value}
-    )
-    refresh_token, _ = create_refresh_token(
-        data={"sub": str(user.id), "role": user.role.value}
+    access_token, refresh_token = create_token_pair(
+        db=db,
+        user_id=str(user.id),
+        role=user.role.value
     )
     
     return {
@@ -96,7 +96,7 @@ def register_customer(user_data: UserRegister, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "refresh_expires_in": 30 * 24 * 60 * 60,
-        "user": user,
+        "user": UserResponse.model_validate(user),
     }
 
 
@@ -130,11 +130,12 @@ async def login(credentials: OAuth2PasswordRequestForm = Depends(), db: Session 
     user.last_login_at = datetime.utcnow()
     db.commit()
     
-    access_token = create_access_token(
-        data={"sub": str(user.id), "role": user.role.value}
-    )
-    refresh_token, _ = create_refresh_token(
-        data={"sub": str(user.id), "role": user.role.value}
+    access_token, refresh_token = create_token_pair(
+        db=db,
+        user_id=str(user.id),
+        role=user.role.value,
+        user_agent=credentials.client_id, # Simplified usage
+        ip_address=None # Would need request for this
     )
     
     return {
@@ -143,7 +144,7 @@ async def login(credentials: OAuth2PasswordRequestForm = Depends(), db: Session 
         "token_type": "bearer",
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "refresh_expires_in": 30 * 24 * 60 * 60,
-        "user": user,
+        "user": UserResponse.model_validate(user),
     }
 
 
@@ -156,14 +157,22 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     request: Request,
+    body: RefreshTokenRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
-    Logout — blacklists the current access token in Redis.
-    The client should also discard the refresh token.
+    Logout — revokes the refresh token and blacklists the access token.
     """
-    from app.core.security import decode_token
-    from datetime import timezone
+    from app.models.user_token_models import UserRefreshToken
+    
+    # Revoke the specific refresh token
+    db.query(UserRefreshToken).filter(
+        UserRefreshToken.jti == decode_token(body.refresh_token).get("jti"),
+        UserRefreshToken.user_id == current_user.id
+    ).update({"is_revoked": True, "revoked_at": datetime.utcnow()})
+    
+    # Blacklist access token
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.removeprefix("Bearer ").strip()
     if token:
@@ -171,47 +180,41 @@ async def logout(
         jti = payload.get("jti")
         exp = payload.get("exp")
         if jti and exp:
-            expires_at = datetime.utcfromtimestamp(exp)
-            await blacklist_token(jti, expires_at)
+            await blacklist_token(jti, datetime.utcfromtimestamp(exp))
+    
+    db.commit()
     return None
 
 
 @router.post("/refresh", response_model=Token)
 async def refresh_tokens(
+    request: Request,
     body: RefreshTokenRequest,
     db: Session = Depends(get_db),
 ):
     """
-    Refresh token rotation — invalidates old refresh token JTI, issues a new pair.
+    Refresh token rotation — invalidates old refresh token, issues a new pair.
     """
-    from app.core.security import verify_refresh_token, decode_token
-    from datetime import timezone
-    payload = verify_refresh_token(body.refresh_token)
-
-    # Blacklist the consumed refresh token so it can't be reused
-    jti = payload.get("jti")
-    exp = payload.get("exp")
-    if jti and exp:
-        await blacklist_token(jti, datetime.utcfromtimestamp(exp))
-
-    user_id = payload.get("sub")
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
-
-    access_token = create_access_token(
-        data={"sub": str(user.id), "role": user.role.value}
+    # Verify and get DB record
+    db_token = verify_refresh_token(db, body.refresh_token)
+    
+    # Rotate
+    access_token, refresh_token = await rotate_refresh_token(
+        db=db,
+        old_token_record=db_token,
+        user_agent=request.headers.get("User-Agent")
     )
-    new_refresh_token, _ = create_refresh_token(
-        data={"sub": str(user.id), "role": user.role.value}
-    )
+    
+    db.commit()
+    
+    user = db_token.user
     return {
         "access_token": access_token,
-        "refresh_token": new_refresh_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "refresh_expires_in": 30 * 24 * 60 * 60,
-        "user": user,
+        "user": UserResponse.model_validate(user),
     }
 
 

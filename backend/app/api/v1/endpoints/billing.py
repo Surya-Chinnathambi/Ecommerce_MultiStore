@@ -33,6 +33,7 @@ from app.schemas.billing_schemas import (
 )
 from app.services.billing_service import get_billing_service
 from app.services.csv_service import csv_service
+from app.services.storage_service import storage
 
 router = APIRouter()
 
@@ -50,7 +51,7 @@ async def create_integration(
         raise HTTPException(status_code=403, detail="Not authorized")
     
     service = get_billing_service(db, str(current_user.store_id))
-    return service.create_integration(
+    integration = service.create_integration(
         name=integration.name,
         provider=integration.provider,
         config=integration.config,
@@ -61,6 +62,9 @@ async def create_integration(
         sync_entities=integration.sync_entities,
         field_mapping=integration.field_mapping
     )
+    db.commit()
+    db.refresh(integration)
+    return integration
 
 
 @router.get("/integrations", response_model=List[BillingIntegrationResponse])
@@ -108,6 +112,8 @@ async def update_integration(
     if not integration:
         raise HTTPException(status_code=404, detail="Integration not found")
     
+    db.commit()
+    db.refresh(integration)
     return integration
 
 
@@ -126,6 +132,8 @@ async def delete_integration(
     
     if not success:
         raise HTTPException(status_code=404, detail="Integration not found")
+    
+    db.commit()
 
 
 # ==================== Connection Testing ====================
@@ -169,6 +177,8 @@ async def sync_data(
             filters=sync_request.filters,
             limit=sync_request.limit
         )
+        db.commit()
+        db.refresh(sync_log)
         return sync_log
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -295,16 +305,22 @@ async def export_to_csv(
     else:
         raise HTTPException(status_code=400, detail=f"Export not supported for {request.entity_type}")
     
-    # TODO: Save to S3 or file storage and return URL
-    # For now, return as inline data
+    # Save to storage (S3 or Local)
+    content_bytes = csv_content.encode('utf-8') if isinstance(csv_content, str) else csv_content
+    file_path = await storage.save_file(
+        content_bytes, 
+        file_name, 
+        subfolder=f"exports/{current_user.store_id}"
+    )
+    file_url = await storage.get_url(file_path)
     
     return FileExportResponse(
-        file_url=f"/downloads/{file_name}",
+        file_url=file_url,
         file_name=file_name,
-        file_size=len(csv_content),
+        file_size=len(content_bytes),
         row_count=len(data),
         format="csv",
-        expires_at=datetime.utcnow()
+        expires_at=datetime.utcnow() + timedelta(hours=24)
     )
 
 

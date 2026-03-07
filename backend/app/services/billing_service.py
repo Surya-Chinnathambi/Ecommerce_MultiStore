@@ -51,8 +51,7 @@ class BillingIntegrationService:
         )
         
         self.db.add(integration)
-        self.db.commit()
-        self.db.refresh(integration)
+        self.db.flush()
         
         logger.info(f"Created billing integration: {name} ({provider})")
         return integration
@@ -96,8 +95,7 @@ class BillingIntegrationService:
             if value is not None and hasattr(integration, key):
                 setattr(integration, key, value)
         
-        self.db.commit()
-        self.db.refresh(integration)
+        self.db.flush()
         
         return integration
     
@@ -108,7 +106,7 @@ class BillingIntegrationService:
             return False
         
         self.db.delete(integration)
-        self.db.commit()
+        self.db.flush()
         
         logger.info(f"Deleted billing integration: {integration_id}")
         return True
@@ -164,7 +162,7 @@ class BillingIntegrationService:
             started_at=datetime.utcnow()
         )
         self.db.add(sync_log)
-        self.db.commit()
+        self.db.flush()
         
         try:
             total_processed = 0
@@ -208,8 +206,7 @@ class BillingIntegrationService:
             else:
                 integration.failed_syncs += 1
             
-            self.db.commit()
-            self.db.refresh(sync_log)
+            self.db.flush()
             
             logger.info(f"Sync completed: {integration.name} - {total_succeeded}/{total_processed} records")
             return sync_log
@@ -225,7 +222,7 @@ class BillingIntegrationService:
             integration.last_sync_message = str(e)
             integration.failed_syncs += 1
             
-            self.db.commit()
+            self.db.flush()
             raise
     
     async def _export_data(
@@ -320,7 +317,7 @@ class BillingIntegrationService:
                 logger.error(f"Failed to export invoice for order {order.id}: {e}")
                 failed += 1
         
-        self.db.commit()
+        self.db.flush()
         
         return {'processed': len(orders), 'succeeded': succeeded, 'failed': failed}
     

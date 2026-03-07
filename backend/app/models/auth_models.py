@@ -50,6 +50,7 @@ class User(Base):
     loyalty_points = relationship("LoyaltyPoints", back_populates="user")
     reviews = relationship("ProductReview", back_populates="user", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="user", foreign_keys="Order.user_id")
+    refresh_tokens = relationship("UserRefreshToken", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User {self.email} - {self.role}>"

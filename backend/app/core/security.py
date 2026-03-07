@@ -17,6 +17,7 @@ import logging
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.auth_models import User, UserRole, APIKey
+from app.models.user_token_models import UserRefreshToken
 
 logger = logging.getLogger(__name__)
 
@@ -73,14 +74,20 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(data: dict) -> Tuple[str, str]:
+def create_refresh_token(
+    db: Session,
+    user_id: str,
+    data: dict,
+    user_agent: Optional[str] = None,
+    ip_address: Optional[str] = None
+) -> str:
     """
-    Create a long-lived refresh token.
-    Returns (encoded_token, jti) — callers store the jti for rotation tracking.
+    Create a long-lived refresh token and store it in DB.
     """
     jti = str(_uuid.uuid4())
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=30)
+    days = 30
+    expire = datetime.utcnow() + timedelta(days=days)
     to_encode.update({
         "exp": expire,
         "iat": datetime.utcnow(),
@@ -88,14 +95,39 @@ def create_refresh_token(data: dict) -> Tuple[str, str]:
         "jti": jti,
     })
     token = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return token, jti
+    
+    # Store in DB
+    db_token = UserRefreshToken(
+        user_id=user_id,
+        jti=jti,
+        user_agent=user_agent,
+        ip_address=ip_address,
+        expires_at=expire
+    )
+    db.add(db_token)
+    db.flush()
+    
+    return token
 
 
-def create_token_pair(user_id: str, role: str, extra: dict | None = None) -> Tuple[str, str]:
+def create_token_pair(
+    db: Session,
+    user_id: str,
+    role: str,
+    extra: dict | None = None,
+    user_agent: str | None = None,
+    ip_address: str | None = None
+) -> Tuple[str, str]:
     """Return (access_token, refresh_token)."""
-    data = {"sub": user_id, "role": role, **(extra or {})}
+    data = {"sub": str(user_id), "role": role, **(extra or {})}
     access_token = create_access_token(data)
-    refresh_token, _ = create_refresh_token(data)
+    refresh_token = create_refresh_token(
+        db=db,
+        user_id=user_id,
+        data=data,
+        user_agent=user_agent,
+        ip_address=ip_address
+    )
     return access_token, refresh_token
 
 
@@ -111,11 +143,67 @@ def decode_token(token: str) -> dict:
         )
 
 
-def verify_refresh_token(token: str) -> dict:
+def verify_refresh_token(db: Session, token: str) -> UserRefreshToken:
+    """
+    Decodes token and verifies it exists in DB and is not revoked.
+    """
     payload = decode_token(token)
     if payload.get("type") != REFRESH_TOKEN_TYPE:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
-    return payload
+    
+    jti = payload.get("jti")
+    db_token = db.query(UserRefreshToken).filter(UserRefreshToken.jti == jti).first()
+    
+    if not db_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not found")
+    
+    if db_token.is_revoked:
+        # POTENTIAL REUSE DETECTED: Revoke all tokens for this user for safety
+        db.query(UserRefreshToken).filter(
+            UserRefreshToken.user_id == db_token.user_id,
+            UserRefreshToken.is_revoked == False
+        ).update({"is_revoked": True, "revoked_at": datetime.utcnow()})
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Security alert: Refresh token reuse detected")
+    
+    if datetime.utcnow() > db_token.expires_at:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+        
+    return db_token
+
+async def rotate_refresh_token(
+    db: Session,
+    old_token_record: UserRefreshToken,
+    user_agent: Optional[str] = None,
+    ip_address: Optional[str] = None
+) -> Tuple[str, str]:
+    """
+    Rotates refresh token: revokes old one, issues new pair.
+    """
+    user = old_token_record.user
+    
+    # Create new pair
+    new_access, new_refresh = create_token_pair(
+        db=db,
+        user_id=str(user.id),
+        role=user.role.value if hasattr(user.role, "value") else str(user.role),
+        user_agent=user_agent,
+        ip_address=ip_address
+    )
+    
+    # Get the JTI of the newly created refresh token (it was just added to DB)
+    # We need to find the latest token for this user
+    new_db_token = db.query(UserRefreshToken).filter(
+        UserRefreshToken.user_id == user.id
+    ).order_by(UserRefreshToken.created_at.desc()).first()
+    
+    # Revoke old token
+    old_token_record.is_revoked = True
+    old_token_record.revoked_at = datetime.utcnow()
+    old_token_record.replaced_by = new_db_token.jti
+    
+    db.flush()
+    return new_access, new_refresh
 
 
 def generate_password_reset_token() -> str:

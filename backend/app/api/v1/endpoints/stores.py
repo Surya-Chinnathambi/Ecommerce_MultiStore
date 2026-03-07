@@ -11,7 +11,7 @@ from uuid import UUID
 import logging
 
 from app.core.database import get_db, get_read_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_admin, verify_admin_store_access
 from app.schemas.schemas import StoreResponse, APIResponse
 from app.models.models import Store, Product, Order, OrderStatus
 from app.models.auth_models import User
@@ -49,7 +49,7 @@ async def list_stores(db: Session = Depends(get_read_db)):
 async def get_dashboard_stats(
     request: Request,
     days: int = 7,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_read_db)
 ):
     """
@@ -60,15 +60,9 @@ async def get_dashboard_stats(
     - Low stock alerts
     - Recent activity
     """
-    if current_user.role.value.upper() not in ('ADMIN', 'SUPER_ADMIN'):
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    store_id = UUID(request.state.store_id)
-
     # Store admin ownership check
-    if current_user.role.value.upper() != 'SUPER_ADMIN':
-        if not current_user.store_id or str(current_user.store_id) != str(store_id):
-            raise HTTPException(status_code=403, detail="You can only view stats for your own store")
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     
     # Date range
     start_date = datetime.utcnow() - timedelta(days=days)
@@ -147,10 +141,14 @@ async def get_dashboard_stats(
 async def get_low_stock_products(
     request: Request,
     limit: int = 50,
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_read_db)
 ):
-    """Get products with low stock"""
+    """Get products with low stock (admin only)"""
     store_id = UUID(request.state.store_id)
+    
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     
     products = db.query(Product).filter(
         and_(
@@ -182,10 +180,14 @@ async def get_recent_orders(
     request: Request,
     limit: int = 20,
     status_filter: Optional[OrderStatus] = None,
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_read_db)
 ):
-    """Get recent orders"""
+    """Get recent orders (admin only)"""
     store_id = UUID(request.state.store_id)
+    
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     
     query = db.query(Order).filter(Order.store_id == store_id)
     
@@ -225,14 +227,14 @@ _UPDATABLE_STORE_FIELDS = {
 async def update_store_settings(
     request: Request,
     payload: Dict[str, Any] = Body(...),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     """Update store branding / contact info (admin only)."""
-    if current_user.role.value.upper() not in ("ADMIN", "SUPER_ADMIN"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
-
     store_id = request.state.store_id
+    
+    if not verify_admin_store_access(current_user, str(store_id)):
+        raise HTTPException(status_code=403, detail="Not authorized for this store")
     store = db.query(Store).filter(Store.id == store_id).first()
     if not store:
         raise HTTPException(status_code=404, detail="Store not found")

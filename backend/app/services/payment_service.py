@@ -128,7 +128,7 @@ class PaymentService:
             except stripe.error.StripeError as e:
                 payment.status = PaymentStatus.FAILED
                 payment.error_message = str(e)
-                db.commit()
+                db.flush()
                 raise ValueError(f"Stripe error: {str(e)}")
         
         elif payment.payment_gateway == PaymentGateway.RAZORPAY:
@@ -157,7 +157,7 @@ class PaymentService:
             except razorpay.errors.BadRequestError as e:
                 payment.status = PaymentStatus.FAILED
                 payment.error_message = str(e)
-                db.commit()
+                db.flush()
                 raise ValueError(f"Razorpay error: {str(e)}")
         
         elif payment.payment_gateway == PaymentGateway.COD:
@@ -165,8 +165,7 @@ class PaymentService:
             payment.status = PaymentStatus.PENDING
             payment.gateway_payment_id = f"COD-{order.order_number}"
         
-        db.commit()
-        db.refresh(payment)
+        db.flush()
         
         return PaymentIntentResponse(**response_data)
     
@@ -175,14 +174,18 @@ class PaymentService:
         db: Session,
         payment_id: UUID,
         gateway_payment_id: str,
+        store_id: UUID,
         gateway_signature: Optional[str] = None
     ) -> PaymentResponse:
         """Confirm a payment after customer completes checkout"""
         
-        payment = db.query(Payment).filter(Payment.id == payment_id).first()
+        payment = db.query(Payment).filter(
+            Payment.id == payment_id,
+            Payment.store_id == store_id
+        ).first()
         
         if not payment:
-            raise ValueError("Payment not found")
+            raise ValueError("Payment not found for this store")
         
         if payment.status == PaymentStatus.COMPLETED:
             return PaymentResponse.model_validate(payment)
@@ -279,7 +282,7 @@ class PaymentService:
             order.payment_status = OrderPaymentStatus.COD
             order.order_status = OrderStatus.CONFIRMED
         
-        db.commit()
+        db.flush()
         db.refresh(payment)
         
         return PaymentResponse.model_validate(payment)
@@ -359,7 +362,7 @@ class PaymentService:
                 refund.status = RefundStatus.FAILED
                 refund.failed_at = datetime.utcnow()
                 refund.error_message = str(e)
-                db.commit()
+                db.flush()
                 raise ValueError(f"Stripe refund failed: {str(e)}")
         
         elif payment.payment_gateway == PaymentGateway.RAZORPAY:
@@ -387,7 +390,7 @@ class PaymentService:
                 refund.status = RefundStatus.FAILED
                 refund.failed_at = datetime.utcnow()
                 refund.error_message = str(e)
-                db.commit()
+                db.flush()
                 raise ValueError(f"Razorpay refund failed: {str(e)}")
         
         elif payment.payment_gateway == PaymentGateway.COD:
@@ -401,7 +404,7 @@ class PaymentService:
         else:
             payment.status = PaymentStatus.PARTIALLY_REFUNDED
         
-        db.commit()
+        db.flush()
         db.refresh(refund)
         
         return {

@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 
 export default function MobileNavBar() {
     const location = useLocation()
-    const totalItems = useCartStore((s) => s.getTotalItems())
+    const totalItems = useCartStore((s) => s.getItemCount())
     const wishlistCount = useWishlistStore((s) => s.items.length)
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 

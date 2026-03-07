@@ -24,7 +24,7 @@ export default function Header() {
         return storeId ? `${path}?store_id=${storeId}` : path
     }
 
-    const totalItems = useCartStore((state) => state.getTotalItems())
+    const totalItems = useCartStore((state) => state.getItemCount())
     const { user, isAuthenticated, logout } = useAuthStore()
     const wishlistCount = useWishlistStore((s) => s.items.length)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)

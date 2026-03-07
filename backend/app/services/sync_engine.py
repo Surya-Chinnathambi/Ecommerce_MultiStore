@@ -90,7 +90,7 @@ class SyncEngine:
         
         # Update store last_sync_at
         store.last_sync_at = datetime.utcnow()
-        self.db.commit()
+        self.db.flush()
         
         # Invalidate cache
         await self._invalidate_store_cache(store_id)
@@ -151,7 +151,7 @@ class SyncEngine:
             # Update stock status
             existing_product.is_in_stock = existing_product.quantity > 0
             
-            self.db.commit()
+            self.db.flush()
             if _ts_index:
                 try:
                     _ts_index(existing_product)
@@ -185,7 +185,7 @@ class SyncEngine:
             )
             
             self.db.add(new_product)
-            self.db.commit()
+            self.db.flush()
             if _ts_index:
                 try:
                     _ts_index(new_product)
@@ -214,7 +214,7 @@ class SyncEngine:
             product.is_in_stock = product_data.quantity > 0
             product.last_synced_at = datetime.utcnow()
             product.updated_at = datetime.utcnow()
-            self.db.commit()
+            self.db.flush()
             
             # Invalidate inventory cache
             cache_key = CacheKeys.inventory(str(store_id), str(product.id))
@@ -288,7 +288,7 @@ class SyncEngine:
             completed_at=datetime.utcnow()
         )
         self.db.add(sync_log)
-        self.db.commit()
+        self.db.flush()
     
     def _calculate_next_sync_time(self, tier: StoreTier) -> datetime:
         """Calculate recommended next sync time based on store tier"""
@@ -330,7 +330,7 @@ class TierManager:
             old_tier = store.sync_tier
             store.sync_tier = new_tier
             store.sync_interval_minutes = self._get_sync_interval(new_tier)
-            self.db.commit()
+            self.db.flush()
             logger.info(f"Store {store_id} tier changed: {old_tier} → {new_tier}")
     
     async def _get_activity_metrics(self, store_id: UUID) -> Dict[str, Any]:

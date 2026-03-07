@@ -10,6 +10,8 @@ import { toast } from '@/components/ui/Toaster'
 import { useEffect, useState, useRef } from 'react'
 import { MapPin, Tag, X, Check, Loader2, Truck, ArrowRight, ArrowLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import confetti from 'canvas-confetti'
+import Button3D from '@/components/ui/Button3D'
 
 const checkoutSchema = z.object({
     customer_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -28,7 +30,8 @@ type CheckoutForm = z.infer<typeof checkoutSchema>
 
 export default function CheckoutPage() {
     const navigate = useNavigate()
-    const { items, getTotalPrice, clearCart } = useCartStore()
+    const { items: itemsMap, getTotalPrice, getItemCount, clearCart } = useCartStore()
+    const items = Object.values(itemsMap)
     const { user, isAuthenticated } = useAuthStore()
     const [currentStep, setCurrentStep] = useState(1)
     const [showAddresses, setShowAddresses] = useState(false)
@@ -51,7 +54,7 @@ export default function CheckoutPage() {
             const res = await couponsApi.validate({
                 code: couponCode.trim(),
                 order_amount: subtotal,
-                item_count: items.length,
+                item_count: getItemCount(),
             })
             setCouponData(res.data.data)
             toast.success(`Coupon applied! You save ₹${res.data.data.discount_amount.toFixed(2)}`)
@@ -134,6 +137,14 @@ export default function CheckoutPage() {
             const paymentMethod = variables.payment_method
 
             clearCart()
+            
+            // Celebratory Confetti!
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#6366f1', '#8b5cf6', '#3b82f6'] // Theme colors
+            })
 
             // Redirect to payment page for online payments
             if (paymentMethod === 'ONLINE') {
@@ -178,7 +189,7 @@ export default function CheckoutPage() {
         toast.success('Address filled successfully!')
     }
 
-    if (items.length === 0) {
+    if (getItemCount() === 0) {
         navigate('/cart')
         return null
     }
@@ -371,8 +382,7 @@ export default function CheckoutPage() {
 
                     {/* Next Step Action */}
                     <div className="flex justify-end mt-6">
-                            <button 
-                                type="button" 
+                            <Button3D 
                                 onClick={async () => {
                                     const isValid = await trigger([
                                         'customer_name', 'customer_phone', 'customer_email', 
@@ -380,11 +390,11 @@ export default function CheckoutPage() {
                                     ])
                                     if (isValid) setCurrentStep(2)
                                 }} 
-                                className="btn btn-primary"
+                                className="w-full sm:w-auto"
                             >
                                 Continue to Payment
                                 <ArrowRight className="h-4 w-4 ml-2" />
-                            </button>
+                            </Button3D>
                         </div>
                     </motion.div>
                 )}
@@ -419,23 +429,22 @@ export default function CheckoutPage() {
                             </label>
                         </div>
 
-                        <div className="flex justify-between mt-6">
-                            <button 
-                                type="button" 
+                        <div className="flex flex-col sm:flex-row justify-between gap-4 mt-6">
+                            <Button3D 
+                                variant="secondary"
                                 onClick={() => setCurrentStep(1)} 
-                                className="btn btn-ghost"
+                                className="order-2 sm:order-1"
                             >
                                 <ArrowLeft className="h-4 w-4 mr-2" />
                                 Back
-                            </button>
-                            <button 
-                                type="button" 
+                            </Button3D>
+                            <Button3D 
                                 onClick={() => setCurrentStep(3)} 
-                                className="btn btn-primary"
+                                className="order-1 sm:order-2"
                             >
                                 Review Order
                                 <ArrowRight className="h-4 w-4 ml-2" />
-                            </button>
+                            </Button3D>
                         </div>
                     </motion.div>
                 )}
@@ -552,21 +561,20 @@ export default function CheckoutPage() {
                         </div>
 
                         {currentStep === 3 ? (
-                            <button
-                                type="submit"
+                            <Button3D
+                                onClick={handleSubmit(onSubmit)}
                                 disabled={createOrderMutation.isPending}
-                                className="w-full btn btn-primary disabled:opacity-50"
+                                className="w-full"
                             >
                                 {createOrderMutation.isPending ? 'Placing Order...' : 'Place Order'}
-                            </button>
+                            </Button3D>
                         ) : (
-                            <button
-                                type="button"
+                            <Button3D
                                 onClick={() => setCurrentStep(Math.min(3, currentStep + 1))}
-                                className="w-full btn btn-primary"
+                                className="w-full"
                             >
-                                Continue Next Step
-                            </button>
+                                {currentStep === 1 ? 'Continue to Payment' : 'Review Order'}
+                            </Button3D>
                         )}
 
                         {!isAuthenticated && (

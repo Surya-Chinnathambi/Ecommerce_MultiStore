@@ -70,6 +70,8 @@ async def sync_products_batch(
         tier_manager = TierManager(db)
         await tier_manager.evaluate_and_adjust_tier(request.store_id)
         
+        db.commit()
+        
         logger.info(
             f"Sync completed for store {store.name}: "
             f"{result.created} created, {result.updated} updated, {result.failed} failed"

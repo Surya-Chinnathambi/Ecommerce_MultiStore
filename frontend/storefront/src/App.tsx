@@ -1,26 +1,25 @@
-import React, { Suspense, lazy } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import React, { Suspense, lazy, useEffect } from 'react'
+import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom'
 import { Toaster } from './components/ui/Toaster'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import { PageSkeleton } from './components/ui/Skeleton'
 import SocialProofNotification from './components/marketing/SocialProofNotification'
 import ScrollToTop from './components/ScrollToTop'
 import Layout from './components/layout/Layout'
+import Loader3D from '@/components/ui/Loader3D'
+import GlobalScene3D from '@/components/ui/GlobalScene3D'
+
+const Loading = () => <Loader3D />
 
 // ── Lazy-loaded pages ─────────────────────────────────────────────────────────
-// Auth (kept small — users hit these before the rest is downloaded)
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
-
-// Public storefront
 const HomePage = lazy(() => import('./pages/HomePage'))
 const ProductsPage = lazy(() => import('./pages/ProductsPage'))
 const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'))
 const SearchResultsPage = lazy(() => import('./pages/SearchResultsPage'))
 const TrackOrderPage = lazy(() => import('./pages/TrackOrderPage'))
-
-// Customer
+const CategoriesPage = lazy(() => import('./pages/CategoryBrowsePage'))
+const CategoryBrowsePage = lazy(() => import('./pages/CategoryBrowsePage'))
 const CartPage = lazy(() => import('./pages/CartPage'))
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'))
 const PaymentPage = lazy(() => import('./pages/PaymentPage'))
@@ -28,22 +27,6 @@ const OrderSuccessPage = lazy(() => import('./pages/OrderSuccessPage'))
 const MyOrdersPage = lazy(() => import('./pages/MyOrdersPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const WishlistPage = lazy(() => import('./pages/WishlistPage'))
-const ReturnRequestPage = lazy(() => import('./pages/ReturnRequestPage'))
-const ReturnStatusPage = lazy(() => import('./pages/ReturnStatusPage'))
-
-// Marketing
-const ReferralProgram = lazy(() => import('./components/marketing/ReferralProgram'))
-
-// Priority 3 pages
-const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
-const CategoryBrowsePage = lazy(() => import('./pages/CategoryBrowsePage'))
-const HelpContactPage = lazy(() => import('./pages/HelpContactPage'))
-
-// Seller
-const SellerRegisterPage = lazy(() => import('./pages/seller/SellerRegisterPage'))
-const SellerDashboardPage = lazy(() => import('./pages/seller/SellerDashboardPage'))
-const SellerProductsPage = lazy(() => import('./pages/seller/SellerProductsPage'))
-const SellerOrdersPage = lazy(() => import('./pages/seller/SellerOrdersPage'))
 
 // Admin
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
@@ -52,29 +35,20 @@ const AdminInventoryAlertsPage = lazy(() => import('./pages/AdminInventoryAlerts
 const AdminProductImportPage = lazy(() => import('./pages/AdminProductImportPage'))
 const AdminOrdersPage = lazy(() => import('./pages/AdminOrdersPage'))
 const AdminCouponsPage = lazy(() => import('./pages/admin/AdminCouponsPage'))
-const AdminReturnsPage = lazy(() => import('./pages/admin/AdminReturnsPage'))
 const AdminAdsPage = lazy(() => import('./pages/admin/AdminAdsPage'))
 const AdminProductsPage = lazy(() => import('./pages/admin/AdminProductsPage'))
 const AdminCustomersPage = lazy(() => import('./pages/admin/AdminCustomersPage'))
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'))
 const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard'))
 const BillingIntegrationPage = lazy(() => import('./pages/BillingIntegrationPage'))
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const POSIntegrationPage = lazy(() => import('./pages/POSIntegrationPage'))
 const MonitoringDashboard = lazy(() => import('./pages/MonitoringDashboard'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 // ── Role-scoped route wrappers ────────────────────────────────────────────────
 function AdminRoute({ children }: { children: React.ReactNode }) {
     return (
         <ProtectedRoute requiredRole="admin" redirectTo="/home">
-            {children}
-        </ProtectedRoute>
-    )
-}
-
-function SellerRoute({ children }: { children: React.ReactNode }) {
-    return (
-        <ProtectedRoute requiredRole="seller" redirectTo="/home">
             {children}
         </ProtectedRoute>
     )
@@ -90,10 +64,17 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
     render() {
         if (this.state.hasError) {
             return (
-                <div style={{ padding: '2rem', color: 'red', fontFamily: 'monospace' }}>
-                    <h2>Fatal React Crash</h2>
-                    <pre>{this.state.error?.toString()}</pre>
-                    <pre>{this.state.error?.stack}</pre>
+                <div className="min-h-screen flex items-center justify-center bg-bg-primary p-8">
+                    <div className="card max-w-2xl w-full p-8 border-red-500/20 bg-red-500/5">
+                        <h2 className="text-2xl font-bold text-red-600 mb-4">Application Crash Detected</h2>
+                        <p className="text-text-secondary mb-6">Something went wrong in the 3D rendering engine or application logic.</p>
+                        <pre className="p-4 bg-black/5 rounded-xl text-xs overflow-auto max-h-60 mb-6 font-mono text-red-500/80">
+                            {this.state.error?.toString()}
+                        </pre>
+                        <button onClick={() => window.location.reload()} className="btn btn-primary">
+                            Reload Application
+                        </button>
+                    </div>
                 </div>
             )
         }
@@ -101,156 +82,81 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
     }
 }
 
-// ── App ───────────────────────────────────────────────────────────────────────
+function AppContent() {
+    const location = useLocation()
+    const buildLink = (path: string) => {
+        const params = new URLSearchParams(window.location.search)
+        const storeId = params.get('store_id') || localStorage.getItem('store_id')
+        return storeId ? `${path}?store_id=${storeId}` : path
+    }
+
+    return (
+        <Suspense fallback={<Loading />}>
+            <Routes location={location} key={location.pathname}>
+                <Route path="/" element={<Navigate to={buildLink('/home')} replace />} />
+                
+                {/* Auth */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+
+                {/* Main Storefront Layout */}
+                <Route element={<Layout />}>
+                    <Route path="/home" element={<HomePage />} />
+                    <Route path="/products" element={<ProductsPage />} />
+                    <Route path="/products/:productId" element={<ProductDetailPage />} />
+                    <Route path="/search" element={<SearchResultsPage />} />
+                    <Route path="/categories" element={<CategoriesPage />} />
+                    <Route path="/categories/:slug" element={<CategoryBrowsePage />} />
+                    <Route path="/track-order" element={<TrackOrderPage />} />
+                    <Route path="/order-success/:orderNumber" element={<OrderSuccessPage />} />
+                    
+                    {/* Protected Routes */}
+                    <Route element={<ProtectedRoute children={<Outlet />} />}>
+                        <Route path="/cart" element={<CartPage />} />
+                        <Route path="/checkout" element={<CheckoutPage />} />
+                        <Route path="/payment/:orderNumber" element={<PaymentPage />} />
+                        <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/my-orders" element={<MyOrdersPage />} />
+                        <Route path="/wishlist" element={<WishlistPage />} />
+                    </Route>
+
+                    {/* Admin Routes */}
+                    <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                    <Route path="/admin/reviews" element={<AdminRoute><AdminReviewsPage /></AdminRoute>} />
+                    <Route path="/admin/inventory-alerts" element={<AdminRoute><AdminInventoryAlertsPage /></AdminRoute>} />
+                    <Route path="/admin/orders" element={<AdminRoute><AdminOrdersPage /></AdminRoute>} />
+                    <Route path="/admin/coupons" element={<AdminRoute><AdminCouponsPage /></AdminRoute>} />
+                    <Route path="/admin/ads" element={<AdminRoute><AdminAdsPage /></AdminRoute>} />
+                    <Route path="/admin/products" element={<AdminRoute><AdminProductsPage /></AdminRoute>} />
+                    <Route path="/admin/customers" element={<AdminRoute><AdminCustomersPage /></AdminRoute>} />
+                    <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
+                    <Route path="/admin/analytics" element={<AdminRoute><AnalyticsDashboard /></AdminRoute>} />
+                    <Route path="/admin/billing" element={<AdminRoute><BillingIntegrationPage /></AdminRoute>} />
+                    <Route path="/admin/pos-integration" element={<AdminRoute><POSIntegrationPage /></AdminRoute>} />
+                    <Route path="/admin/product-import" element={<AdminRoute><AdminProductImportPage /></AdminRoute>} />
+                    <Route path="/monitoring" element={<AdminRoute><MonitoringDashboard /></AdminRoute>} />
+
+                    <Route path="*" element={<NotFoundPage />} />
+                </Route>
+            </Routes>
+        </Suspense>
+    )
+}
+
 function App() {
-    // Resolve store_id on first render
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
         const urlStoreId = params.get('store_id')
         const storedId = localStorage.getItem('store_id')
-        const defaultId = import.meta.env.VITE_DEFAULT_STORE_ID
-
-        const storeIdToUse = urlStoreId || storedId || defaultId
+        const storeIdToUse = urlStoreId || storedId || import.meta.env.VITE_DEFAULT_STORE_ID
         if (storeIdToUse) localStorage.setItem('store_id', storeIdToUse)
     }, [])
 
     return (
         <>
+            <GlobalScene3D />
             <ErrorBoundary>
-                <Suspense fallback={<PageSkeleton />}>
-                    <Routes>
-                    {/* Default */}
-                    <Route path="/" element={<Navigate to="/login" replace />} />
-
-                    {/* Auth (no layout) */}
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
-
-                    {/* Public storefront */}
-                    <Route path="/home" element={<Layout />}>
-                        <Route index element={<HomePage />} />
-                    </Route>
-                    <Route path="/products" element={<Layout />}>
-                        <Route index element={<ProductsPage />} />
-                        <Route path=":productId" element={<ProductDetailPage />} />
-                    </Route>
-                    <Route path="/search" element={<Layout />}>
-                        <Route index element={<SearchResultsPage />} />
-                    </Route>
-                    <Route path="/track-order" element={<Layout />}>
-                        <Route index element={<TrackOrderPage />} />
-                    </Route>
-                    <Route path="/order-success/:orderNumber" element={<Layout />}>
-                        <Route index element={<OrderSuccessPage />} />
-                    </Route>
-
-                    {/* Customer — any authenticated user */}
-                    <Route path="/cart" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/checkout" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/payment/:orderNumber" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/profile" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/my-orders" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><MyOrdersPage /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/wishlist" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/returns/new/:orderId" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><ReturnRequestPage /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/returns/:returnId" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><ReturnStatusPage /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/referrals" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><ReferralProgram /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/notifications" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
-                    </Route>
-
-                    {/* Public pages */}
-                    <Route path="/categories" element={<Layout />}>
-                        <Route index element={<CategoryBrowsePage />} />
-                        <Route path=":slug" element={<CategoryBrowsePage />} />
-                    </Route>
-                    <Route path="/help" element={<Layout />}>
-                        <Route index element={<HelpContactPage />} />
-                    </Route>
-
-                    {/* Seller — requires seller role */}
-                    <Route path="/seller/register" element={<Layout />}>
-                        <Route index element={<ProtectedRoute><SellerRegisterPage /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/seller/dashboard" element={<Layout />}>
-                        <Route index element={<SellerRoute><SellerDashboardPage /></SellerRoute>} />
-                    </Route>
-                    <Route path="/seller/products" element={<Layout />}>
-                        <Route index element={<SellerRoute><SellerProductsPage /></SellerRoute>} />
-                    </Route>
-                    <Route path="/seller/orders" element={<Layout />}>
-                        <Route index element={<SellerRoute><SellerOrdersPage /></SellerRoute>} />
-                    </Route>
-
-                    {/* Admin — requires admin role */}
-                    <Route path="/admin" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/reviews" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminReviewsPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/inventory-alerts" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminInventoryAlertsPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/orders" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminOrdersPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/coupons" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminCouponsPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/returns" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminReturnsPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/ads" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminAdsPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/products" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminProductsPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/customers" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminCustomersPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/settings" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/analytics" element={<Layout />}>
-                        <Route index element={<AdminRoute><AnalyticsDashboard /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/billing" element={<Layout />}>
-                        <Route index element={<AdminRoute><BillingIntegrationPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/pos-integration" element={<Layout />}>
-                        <Route index element={<AdminRoute><POSIntegrationPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/admin/product-import" element={<Layout />}>
-                        <Route index element={<AdminRoute><AdminProductImportPage /></AdminRoute>} />
-                    </Route>
-                    <Route path="/monitoring" element={<Layout />}>
-                        <Route index element={<AdminRoute><MonitoringDashboard /></AdminRoute>} />
-                    </Route>
-                    {/* 404 catch-all */}
-                    <Route path="*" element={<Layout />}>
-                        <Route index element={<NotFoundPage />} />
-                    </Route>
-                </Routes>
-            </Suspense>
+                <AppContent />
             </ErrorBoundary>
             <Toaster />
             <SocialProofNotification />

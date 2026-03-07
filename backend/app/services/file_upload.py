@@ -11,7 +11,7 @@ from datetime import datetime
 
 from fastapi import UploadFile, HTTPException
 from PIL import Image
-import aiofiles
+from app.services.storage_service import storage, BaseStorage
 import logging
 
 logger = logging.getLogger(__name__)
@@ -53,9 +53,8 @@ class SecureFileUpload:
     MAX_DOCUMENT_SIZE = 10 * 1024 * 1024  # 10MB
     MAX_IMAGE_DIMENSIONS = (4096, 4096)
     
-    def __init__(self, upload_dir: str = "uploads"):
-        self.upload_dir = Path(upload_dir)
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, storage: BaseStorage = storage):
+        self.storage = storage
     
     def _detect_mime_type(self, content: bytes) -> Optional[str]:
         """Detect MIME type from file magic bytes."""
@@ -204,20 +203,7 @@ class SecureFileUpload:
         Returns:
             Relative path to saved file
         """
-        # Create subfolder if specified
-        if subfolder:
-            save_dir = self.upload_dir / subfolder
-            save_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            save_dir = self.upload_dir
-        
-        file_path = save_dir / filename
-        
-        async with aiofiles.open(file_path, 'wb') as f:
-            await f.write(content)
-        
-        # Return relative path
-        return str(file_path.relative_to(self.upload_dir))
+        return await self.storage.save_file(content, filename, subfolder)
     
     async def process_and_save_image(
         self,
@@ -243,7 +229,7 @@ class SecureFileUpload:
         file_path = await self.save_file(content, filename, store_id)
         
         result = {
-            'url': f"/uploads/{file_path}",
+            'url': await self.storage.get_url(file_path),
             'filename': filename,
             'metadata': metadata,
             'thumbnails': {}
@@ -275,7 +261,7 @@ class SecureFileUpload:
                 )
                 
                 result['thumbnails'][size_name] = {
-                    'url': f"/uploads/{thumb_path}",
+                    'url': await self.storage.get_url(thumb_path),
                     'dimensions': thumb_img.size
                 }
         

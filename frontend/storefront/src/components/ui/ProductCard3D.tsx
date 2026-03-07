@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Heart, Eye, Zap } from 'lucide-react'
+import { ShoppingCart, Heart, Zap } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { useAuthStore } from '@/store/authStore'
@@ -9,6 +9,7 @@ import QuickViewModal from '@/components/QuickViewModal'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import ProductCanvas from './ProductCanvas'
 
 interface Product {
     id: string
@@ -66,7 +67,6 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
     }, [isAuthenticated, isLoaded, fetchWishlist])
 
     const wishlisted = isWishlisted(product.id)
-    const savings = product.mrp - product.selling_price
     const isLowStock = product.is_in_stock && product.quantity > 0 && product.quantity <= 5
 
     const handleAddToCart = (e: React.MouseEvent) => {
@@ -102,11 +102,10 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
                     viewMode === 'list' ? 'flex flex-row p-4 gap-5' : 'flex flex-col'
                 )}
             >
-                {/* Wrap Link for the entire card to keep styling simple */}
                 <Link to={`/products/${product.id}`} className={twMerge(
                     "flex-1", viewMode === 'list' && "flex flex-row gap-5"
                 )}>
-                    {/* Image Area */}
+                    {/* Image Area with 3D Canvas Background */}
                     <div 
                         className={twMerge(
                             "relative overflow-hidden bg-bg-tertiary",
@@ -114,19 +113,23 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
                         )}
                         style={{ transform: 'translateZ(20px)' }}
                     >
+                        <div className="absolute inset-0 z-0 opacity-40 group-hover:opacity-100 transition-opacity">
+                            <ProductCanvas imageUrl={product.thumbnail} interactive={false} />
+                        </div>
+                        
                         {!imageLoaded && <div className="absolute inset-0 skeleton" />}
                         {product.thumbnail ? (
                             <img
                                 src={product.thumbnail}
                                 alt={product.name}
                                 className={clsx(
-                                    "w-full h-full object-cover transition-all duration-500",
+                                    "w-full h-full object-cover transition-all duration-500 relative z-10 mix-blend-multiply",
                                     imageLoaded ? 'opacity-100' : 'opacity-0'
                                 )}
                                 onLoad={() => setImageLoaded(true)}
                             />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-text-quaternary text-xs">No image</div>
+                            <div className="w-full h-full flex items-center justify-center text-text-quaternary text-xs relative z-10">No image</div>
                         )}
 
                         {/* Top badges */}
@@ -155,36 +158,12 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}
                                     onClick={handleWishlist}
-                                    aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
                                     className={clsx(
                                         "h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-all duration-200 backdrop-blur-sm",
                                         wishlisted ? "bg-red-500 text-white" : "bg-bg-primary/90 text-text-tertiary opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 hover:bg-red-500 hover:text-white"
                                     )}
                                 >
                                     <Heart className={clsx("h-3.5 w-3.5", wishlisted && "fill-current")} />
-                                </motion.button>
-                                <motion.button
-                                    whileTap={{ scale: 0.9 }}
-                                    onClick={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setShowQuickView(true) }}
-                                    aria-label="Quick view"
-                                    className="h-8 w-8 rounded-full bg-bg-primary/90 text-text-tertiary shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 backdrop-blur-sm hover:bg-theme-primary hover:text-white transition-all duration-200 delay-50"
-                                >
-                                    <Eye className="h-3.5 w-3.5" />
-                                </motion.button>
-                            </div>
-                        )}
-
-                        {/* Add to cart slide-up (Grid view) */}
-                        {viewMode === 'grid' && (
-                            <div className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-8 bg-gradient-to-t from-black/55 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-1 group-hover:translate-y-0" style={{ transform: 'translateZ(35px)' }}>
-                                <motion.button
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={handleAddToCart}
-                                    disabled={!product.is_in_stock}
-                                    className="w-full btn btn-primary btn-sm bg-white/95 !text-gray-900 border-0 shadow-md backdrop-blur-sm gap-1.5 hover:bg-white"
-                                >
-                                    <ShoppingCart className="h-3.5 w-3.5" />
-                                    {product.is_in_stock ? 'Add to Cart' : 'Out of Stock'}
                                 </motion.button>
                             </div>
                         )}
@@ -199,9 +178,6 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
                             <h3 className="font-semibold text-text-primary group-hover:text-theme-primary transition-colors line-clamp-2 leading-snug mb-2 text-sm md:text-base">
                                 {product.name}
                             </h3>
-                            {viewMode === 'list' && product.description && (
-                                <p className="text-text-tertiary text-sm line-clamp-2 leading-relaxed">{product.description}</p>
-                            )}
                         </div>
 
                         <div className={clsx(viewMode === 'list' ? "flex items-center justify-between mt-4 gap-3" : "flex items-end justify-between gap-2")}>
@@ -210,24 +186,13 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
                                     <span className="text-lg font-black text-text-primary tabular-nums">
                                         ₹{product.selling_price.toLocaleString('en-IN')}
                                     </span>
-                                    {product.discount_percent > 0 && (
-                                        <span className="text-xs text-text-quaternary line-through tabular-nums">
-                                            ₹{product.mrp.toLocaleString('en-IN')}
-                                        </span>
-                                    )}
                                 </div>
-                                {savings > 0 && (
-                                    <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                                        Save ₹{savings.toLocaleString('en-IN')}
-                                    </p>
-                                )}
                             </div>
                             
                             {viewMode === 'list' && (
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}
                                     onClick={handleAddToCart}
-                                    disabled={!product.is_in_stock}
                                     className="btn btn-primary btn-sm flex-shrink-0"
                                 >
                                     <ShoppingCart className="h-3.5 w-3.5" />
