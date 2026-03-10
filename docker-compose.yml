@@ -9,9 +9,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-ecommerce_platform}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # No direct ports for DB; reachable via internal network only
-    # ports:
-    #   - "5432:5432"
+    # Direct ports for DB reachable via localhost
+    ports:
+      - "5432:5432"
     deploy:
       resources:
         limits:

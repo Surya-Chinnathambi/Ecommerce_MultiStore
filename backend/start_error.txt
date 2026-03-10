@@ -1,0 +1,61 @@
+Traceback (most recent call last):
+  File "C:\ecommerce-platform\backend\debug_main.py", line 3, in <module>
+    import app.main
+  File "C:\ecommerce-platform\backend\app\main.py", line 21, in <module>
+    from app.api.v1.api import api_router
+  File "C:\ecommerce-platform\backend\app\api\v1\api.py", line 6, in <module>
+    from app.api.v1.endpoints import sync, storefront, products, orders, stores, auth, reviews, analytics, payments, notifications, billing, pos_integration, websocket, wishlist, seller, returns, coupons, search, recommendations
+  File "C:\ecommerce-platform\backend\app\api\v1\endpoints\analytics.py", line 31, in <module>
+    @router.get("/dashboard", response_model=DashboardStats)
+     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 956, in decorator
+    self.add_api_route(
+    ~~~~~~~~~~~~~~~~~~^
+        path,
+        ^^^^^
+    ...<23 lines>...
+        generate_unique_id_function=generate_unique_id_function,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 895, in add_api_route
+    route = route_class(
+        self.prefix + path,
+    ...<24 lines>...
+        generate_unique_id_function=current_generate_unique_id,
+    )
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 525, in __init__
+    self.dependant = get_dependant(path=self.path_format, call=self.endpoint)
+                     ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\dependencies\utils.py", line 250, in get_dependant
+    endpoint_signature = get_typed_signature(call)
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\dependencies\utils.py", line 208, in get_typed_signature
+    signature = inspect.signature(call)
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\inspect.py", line 3322, in signature
+    return Signature.from_callable(obj, follow_wrapped=follow_wrapped,
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                   globals=globals, locals=locals, eval_str=eval_str,
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                   annotation_format=annotation_format)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\inspect.py", line 3037, in from_callable
+    return _signature_from_callable(obj, sigcls=cls,
+                                    follow_wrapper_chains=follow_wrapped,
+                                    globals=globals, locals=locals, eval_str=eval_str,
+                                    annotation_format=annotation_format)
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\inspect.py", line 2512, in _signature_from_callable
+    return _signature_from_function(sigcls, obj,
+                                    skip_bound_arg=skip_bound_arg,
+                                    globals=globals, locals=locals, eval_str=eval_str,
+                                    annotation_format=annotation_format)
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\inspect.py", line 2335, in _signature_from_function
+    annotations = get_annotations(func, globals=globals, locals=locals, eval_str=eval_str,
+                                  format=annotation_format)
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\annotationlib.py", line 966, in get_annotations
+    ann = _get_dunder_annotations(obj)
+  File "C:\Users\surya\AppData\Local\Programs\Python\Python314\Lib\annotationlib.py", line 1146, in _get_dunder_annotations
+    ann = getattr(obj, "__annotations__", None)
+  File "C:\ecommerce-platform\backend\app\api\v1\endpoints\analytics.py", line 33, in __annotate__
+    current_user: User = Depends(get_current_admin),
+                  ^^^^
+NameError: name 'User' is not defined

@@ -14,6 +14,7 @@ import io
 from app.core.database import get_db
 from app.models.analytics_models import DailyAnalytics, ProductAnalytics, InventoryAlert
 from app.models.models import Order, OrderItem, Product, Store
+from app.models.auth_models import User
 from app.core.security import get_current_user, get_current_admin, verify_admin_store_access
 from app.models.review_models import ProductReview
 from app.schemas.review_analytics_schemas import (

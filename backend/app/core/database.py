@@ -25,9 +25,7 @@ engine = create_engine(
     pool_pre_ping=True,          # Verify connections before using
     pool_recycle=settings.DB_POOL_RECYCLE,   # Recycle to avoid stale / timed-out connections
     pool_timeout=settings.DB_POOL_TIMEOUT,   # Raise if pool exhausted instead of hanging
-    connect_args={
-        "options": f"-c statement_timeout={settings.DB_STATEMENT_TIMEOUT_MS}",
-    },
+    connect_args={},
     echo=False,                  # Set to True for SQL query debugging
 )
 
