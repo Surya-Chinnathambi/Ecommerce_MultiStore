@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Megaphone, Zap, Plus, X, Trash2, CheckCircle, Clock, Eye, ExternalLink, Image as ImageIcon, Layers } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from '@/components/ui/Toaster'
+import Modal, { ModalBody, ModalHeader } from '@/components/ui/Modal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,17 +59,17 @@ const emptyFlash = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const BANNER_TYPES = ['promotional', 'sale', 'event', 'announcement']
+const BANNER_TYPES = ['hero', 'promotional', 'category', 'flash_sale']
 
 // ─── Offer Templates ─────────────────────────────────────────────────────────
 
 const OFFER_TEMPLATES = [
-    { id: 'flash-deal', name: 'Flash Deal', desc: 'Urgent limited-time offer', emoji: '⚡', headerBg: 'bg-gradient-to-br from-red-600 to-orange-500', badgeBg: 'bg-yellow-400', badgeText: 'text-black', cardBorder: 'border-red-500/40' },
-    { id: 'weekend-sale', name: 'Weekend Sale', desc: 'Weekend promotions & events', emoji: '🎉', headerBg: 'bg-gradient-to-br from-purple-600 to-pink-500', badgeBg: 'bg-white', badgeText: 'text-purple-700', cardBorder: 'border-purple-500/40' },
-    { id: 'new-arrival', name: 'New Arrival', desc: 'Showcase just-dropped products', emoji: '✨', headerBg: 'bg-gradient-to-br from-emerald-500 to-teal-600', badgeBg: 'bg-white', badgeText: 'text-emerald-700', cardBorder: 'border-emerald-500/40' },
-    { id: 'clearance', name: 'Clearance', desc: 'Clear old inventory fast', emoji: '🔥', headerBg: 'bg-gradient-to-br from-amber-400 to-orange-600', badgeBg: 'bg-red-600', badgeText: 'text-white', cardBorder: 'border-amber-500/40' },
-    { id: 'bundle-offer', name: 'Bundle Offer', desc: 'Buy more, save more deals', emoji: '🎁', headerBg: 'bg-gradient-to-br from-blue-600 to-indigo-700', badgeBg: 'bg-cyan-400', badgeText: 'text-blue-900', cardBorder: 'border-blue-500/40' },
-    { id: 'seasonal', name: 'Seasonal', desc: 'Holiday & seasonal campaigns', emoji: '🌟', headerBg: 'bg-gradient-to-br from-rose-400 to-pink-600', badgeBg: 'bg-white', badgeText: 'text-rose-700', cardBorder: 'border-rose-500/40' },
+    { id: 'flash-deal', bannerType: 'hero', name: 'Flash Deal', desc: 'Urgent limited-time offer', emoji: '⚡', headerBg: 'bg-gradient-to-br from-red-600 to-orange-500', badgeBg: 'bg-yellow-400', badgeText: 'text-black', cardBorder: 'border-red-500/40' },
+    { id: 'weekend-sale', bannerType: 'hero', name: 'Weekend Sale', desc: 'Weekend promotions & events', emoji: '🎉', headerBg: 'bg-gradient-to-br from-purple-600 to-pink-500', badgeBg: 'bg-white', badgeText: 'text-purple-700', cardBorder: 'border-purple-500/40' },
+    { id: 'new-arrival', bannerType: 'promotional', name: 'New Arrival', desc: 'Showcase just-dropped products', emoji: '✨', headerBg: 'bg-gradient-to-br from-emerald-500 to-teal-600', badgeBg: 'bg-white', badgeText: 'text-emerald-700', cardBorder: 'border-emerald-500/40' },
+    { id: 'clearance', bannerType: 'promotional', name: 'Clearance', desc: 'Clear old inventory fast', emoji: '🔥', headerBg: 'bg-gradient-to-br from-amber-400 to-orange-600', badgeBg: 'bg-red-600', badgeText: 'text-white', cardBorder: 'border-amber-500/40' },
+    { id: 'bundle-offer', bannerType: 'promotional', name: 'Bundle Offer', desc: 'Buy more, save more deals', emoji: '🎁', headerBg: 'bg-gradient-to-br from-blue-600 to-indigo-700', badgeBg: 'bg-cyan-400', badgeText: 'text-blue-900', cardBorder: 'border-blue-500/40' },
+    { id: 'seasonal', bannerType: 'hero', name: 'Seasonal', desc: 'Holiday & seasonal campaigns', emoji: '🌟', headerBg: 'bg-gradient-to-br from-rose-400 to-pink-600', badgeBg: 'bg-white', badgeText: 'text-rose-700', cardBorder: 'border-rose-500/40' },
 ]
 
 const emptyTemplateForm = {
@@ -542,7 +543,7 @@ export default function AdminAdsPage() {
                                                             : tmpl.desc,
                                                         image_url: templateForm.productImage,
                                                         link_url: templateForm.linkUrl,
-                                                        banner_type: tmpl.id,
+                                                        banner_type: tmpl.bannerType,
                                                         display_order: 0,
                                                         start_date: templateForm.start_date,
                                                         end_date: templateForm.end_date,
@@ -571,12 +572,9 @@ export default function AdminAdsPage() {
 
             {/* ── BANNER FORM MODAL ── */}
             {showBannerForm && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowBannerForm(false)}>
-                    <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className="text-lg font-bold text-text-primary">Create Banner</h2>
-                            <button onClick={() => setShowBannerForm(false)} className="btn btn-ghost btn-sm" aria-label="Close" title="Close"><X className="h-4 w-4" /></button>
-                        </div>
+                <Modal open={showBannerForm} onClose={() => setShowBannerForm(false)} maxWidthClassName="max-w-lg" panelClassName="card w-full max-h-[90vh] overflow-y-auto">
+                    <ModalHeader title="Create Banner" onClose={() => setShowBannerForm(false)} className="px-0 py-0 pb-5 mb-5 border-b border-border-color rounded-none" />
+                    <ModalBody className="p-0">
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary mb-1">Title *</label>
@@ -631,18 +629,15 @@ export default function AdminAdsPage() {
                                 {createBanner.isPending ? 'Creating…' : 'Create Banner'}
                             </button>
                         </div>
-                    </div>
-                </div>
+                    </ModalBody>
+                </Modal>
             )}
 
             {/* ── FLASH SALE FORM MODAL ── */}
             {showFlashForm && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowFlashForm(false)}>
-                    <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className="text-lg font-bold text-text-primary">Create Flash Sale</h2>
-                            <button onClick={() => setShowFlashForm(false)} className="btn btn-ghost btn-sm" aria-label="Close" title="Close"><X className="h-4 w-4" /></button>
-                        </div>
+                <Modal open={showFlashForm} onClose={() => setShowFlashForm(false)} maxWidthClassName="max-w-lg" panelClassName="card w-full max-h-[90vh] overflow-y-auto">
+                    <ModalHeader title="Create Flash Sale" onClose={() => setShowFlashForm(false)} className="px-0 py-0 pb-5 mb-5 border-b border-border-color rounded-none" />
+                    <ModalBody className="p-0">
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary mb-1">Campaign Name *</label>
@@ -687,8 +682,8 @@ export default function AdminAdsPage() {
                                 {createFlash.isPending ? 'Launching…' : 'Launch Flash Sale'}
                             </button>
                         </div>
-                    </div>
-                </div>
+                    </ModalBody>
+                </Modal>
             )}
         </div>
     )

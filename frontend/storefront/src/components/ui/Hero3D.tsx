@@ -1,6 +1,6 @@
 import { useRef, Suspense } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, Float, Sphere, MeshDistortMaterial, ContactShadows } from '@react-three/drei'
+import { Environment, Float, Sphere, MeshDistortMaterial, ContactShadows, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 
 function AbstractShapes() {
@@ -88,6 +88,14 @@ export default function Hero3D() {
                     
                     <Environment preset="city" />
                 </Suspense>
+                <OrbitControls 
+                    enableZoom={false} 
+                    enablePan={false} 
+                    autoRotate 
+                    autoRotateSpeed={1}
+                    minPolarAngle={Math.PI / 3}
+                    maxPolarAngle={Math.PI / 1.5}
+                />
             </Canvas>
         </div>
     )

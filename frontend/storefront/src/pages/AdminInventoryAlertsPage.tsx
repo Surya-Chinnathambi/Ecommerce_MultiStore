@@ -3,6 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle, Plus, X, Package } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from '@/components/ui/Toaster'
+import PageHeader from '@/components/ui/PageHeader'
+import EmptyState from '@/components/ui/EmptyState'
+import Button from '@/components/ui/Button'
+import StatusBadge from '@/components/ui/StatusBadge'
 
 interface InventoryAlert {
     id: string
@@ -156,19 +160,16 @@ export default function AdminInventoryAlertsPage() {
         <div className="min-h-screen bg-bg-secondary">
             <div className="container mx-auto px-4 py-8">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-text-primary">Inventory Alerts</h1>
-                        <p className="text-text-secondary mt-2">Monitor and manage low stock alerts</p>
-                    </div>
-                    <button
+                <PageHeader
+                    title="Inventory Alerts"
+                    subtitle="Monitor and manage low stock alerts"
+                    actions={<Button
                         onClick={() => setShowCreateModal(true)}
-                        className="btn btn-primary flex items-center gap-2"
+                        leftIcon={<Plus size={20} />}
                     >
-                        <Plus size={20} />
                         Create Alert
-                    </button>
-                </div>
+                    </Button>}
+                />
 
                 {/* Filters */}
                 <div className="card mb-6">
@@ -215,10 +216,12 @@ export default function AdminInventoryAlertsPage() {
                 {/* Alerts List */}
                 <div className="space-y-4">
                     {alerts.length === 0 ? (
-                        <div className="card p-12 text-center">
-                            <Package className="mx-auto h-16 w-16 text-text-tertiary mb-4" />
-                            <p className="text-xl text-text-secondary">No alerts found</p>
-                            <p className="text-text-tertiary mt-2">All inventory levels are healthy</p>
+                        <div className="card">
+                            <EmptyState
+                                icon={<Package className="h-16 w-16" />}
+                                title="No alerts found"
+                                description="All inventory levels are healthy"
+                            />
                         </div>
                     ) : (
                         alerts.map((alert) => (
@@ -235,9 +238,7 @@ export default function AdminInventoryAlertsPage() {
                                                 <h3 className="text-lg font-semibold">
                                                     {alert.product_name || `Product ${alert.product_id.slice(0, 8)}`}
                                                 </h3>
-                                                <span className="badge bg-bg-primary/60 text-current">
-                                                    {alert.alert_type.replace('_', ' ').toUpperCase()}
-                                                </span>
+                                                <StatusBadge status={alert.alert_type} className="bg-bg-primary/60 text-current border-border-color" />
                                                 {alert.is_resolved && (
                                                     <span className="badge bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/20 flex items-center gap-1">
                                                         <CheckCircle size={14} />

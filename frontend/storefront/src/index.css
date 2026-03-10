@@ -7,34 +7,58 @@
    Inspired by Stripe, Linear, Vercel, Shopify
    ============================================================ */
 
-:root {    /* Typography Scale */
-    --text-xs: 0.75rem;     /* 12px */
-    --text-sm: 0.875rem;    /* 14px */
-    --text-base: 1rem;      /* 16px */
-    --text-lg: 1.125rem;    /* 18px */
-    --text-xl: 1.25rem;     /* 20px */
-    --text-2xl: 1.5rem;     /* 24px */
-    --text-3xl: 1.875rem;   /* 30px */
-    --text-4xl: 2.25rem;    /* 36px */
-    --text-5xl: 3rem;       /* 48px */
-    --text-6xl: 3.75rem;    /* 60px */
+:root {
+    /* Typography Scale */
+    --text-xs: 0.75rem;
+    /* 12px */
+    --text-sm: 0.875rem;
+    /* 14px */
+    --text-base: 1rem;
+    /* 16px */
+    --text-lg: 1.125rem;
+    /* 18px */
+    --text-xl: 1.25rem;
+    /* 20px */
+    --text-2xl: 1.5rem;
+    /* 24px */
+    --text-3xl: 1.875rem;
+    /* 30px */
+    --text-4xl: 2.25rem;
+    /* 36px */
+    --text-5xl: 3rem;
+    /* 48px */
+    --text-6xl: 3.75rem;
+    /* 60px */
 
     /* 8pt Spacing System */
-    --space-1: 0.25rem;     /* 4px */
-    --space-2: 0.5rem;      /* 8px */
-    --space-3: 0.75rem;     /* 12px */
-    --space-4: 1rem;        /* 16px */
-    --space-5: 1.25rem;     /* 20px */
-    --space-6: 1.5rem;      /* 24px */
-    --space-8: 2rem;        /* 32px */
-    --space-10: 2.5rem;     /* 40px */
-    --space-12: 3rem;       /* 48px */
-    --space-16: 4rem;       /* 64px */
-    --space-20: 5rem;       /* 80px */
-    --space-24: 6rem;       /* 96px */
+    --space-1: 0.25rem;
+    /* 4px */
+    --space-2: 0.5rem;
+    /* 8px */
+    --space-3: 0.75rem;
+    /* 12px */
+    --space-4: 1rem;
+    /* 16px */
+    --space-5: 1.25rem;
+    /* 20px */
+    --space-6: 1.5rem;
+    /* 24px */
+    --space-8: 2rem;
+    /* 32px */
+    --space-10: 2.5rem;
+    /* 40px */
+    --space-12: 3rem;
+    /* 48px */
+    --space-16: 4rem;
+    /* 64px */
+    --space-20: 5rem;
+    /* 80px */
+    --space-24: 6rem;
+    /* 96px */
 
     /* Radius */
-    --radius-sm: 8px;       /* Refined for 8pt grid */
+    --radius-sm: 8px;
+    /* Refined for 8pt grid */
     --radius-md: 12px;
     --radius-lg: 16px;
     --radius-xl: 20px;
@@ -713,8 +737,14 @@ body {
     .hover-lift-premium:hover {
         @apply -translate-y-1.5;
         box-shadow: 0 20px 40px -12px rgb(var(--primary) / 0.15),
-                    0 10px 20px -8px rgb(var(--accent) / 0.1),
-                    var(--shadow-xl);
+            0 10px 20px -8px rgb(var(--accent) / 0.1),
+            var(--shadow-xl);
+    }
+
+    .auth-mesh-pattern {
+        background-image:
+            radial-gradient(circle at 25% 25%, rgb(255 255 255 / 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 75% 75%, rgb(255 255 255 / 0.08) 0%, transparent 50%);
     }
 
     /* Bento Grid */
@@ -783,6 +813,26 @@ body {
     /* Truncate with tooltip */
     .truncate-tooltip {
         @apply truncate cursor-default;
+    }
+
+    .perspective-1000 {
+        perspective: 1000px;
+    }
+
+    .translate-z-20 {
+        transform: translateZ(20px);
+    }
+
+    .translate-z-25 {
+        transform: translateZ(25px);
+    }
+
+    .translate-z-30 {
+        transform: translateZ(30px);
+    }
+
+    .translate-z-40 {
+        transform: translateZ(40px);
     }
 }
 
@@ -970,5 +1020,33 @@ body {
 
     to {
         transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+
+    .animate-fade-in,
+    .animate-slide-up,
+    .animate-slide-down,
+    .animate-scale-in,
+    .animate-bounce-in,
+    .animate-float,
+    .animate-slide-in-left,
+    .animate-slide-in-right,
+    .animate-shimmer,
+    .animate-pulse-ring,
+    .animate-spin-slow {
+        animation: none !important;
     }
 }

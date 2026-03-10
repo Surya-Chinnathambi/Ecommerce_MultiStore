@@ -8,10 +8,13 @@ import { orderApi, authApi, couponsApi, pincodeApi } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
 import { toast } from '@/components/ui/Toaster'
 import { useEffect, useState, useRef } from 'react'
-import { MapPin, Tag, X, Check, Loader2, Truck, ArrowRight, ArrowLeft } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { MapPin, X, Check, Loader2, Truck, ArrowRight, ArrowLeft } from 'lucide-react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import Button3D from '@/components/ui/Button3D'
+import FormField, { getFieldAria } from '@/components/ui/FormField'
+import CouponField from '@/components/ui/CouponField'
+import { wizardStepVariants } from '@/lib/motion'
 
 const checkoutSchema = z.object({
     customer_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -41,6 +44,8 @@ export default function CheckoutPage() {
     const [pincodeInfo, setPincodeInfo] = useState<{ serviceable: boolean; standard_days?: number; city?: string; state?: string } | null>(null)
     const [pincodeLoading, setPincodeLoading] = useState(false)
     const pincodeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const shouldReduceMotion = useReducedMotion()
+    const wizardOffset = shouldReduceMotion ? 0 : 40
 
     const subtotal = getTotalPrice()
     const discount = couponData?.discount_amount ?? 0
@@ -137,7 +142,7 @@ export default function CheckoutPage() {
             const paymentMethod = variables.payment_method
 
             clearCart()
-            
+
             // Celebratory Confetti!
             confetti({
                 particleCount: 150,
@@ -211,8 +216,8 @@ export default function CheckoutPage() {
                         <div key={step.id} className="flex items-center flex-1">
                             <div className="flex flex-col items-center gap-1 flex-none">
                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold transition-all ${step.id <= 2
-                                        ? 'bg-theme-primary text-white shadow-md shadow-theme-primary/30'
-                                        : 'bg-bg-tertiary text-text-tertiary'
+                                    ? 'bg-theme-primary text-white shadow-md shadow-theme-primary/30'
+                                    : 'bg-bg-tertiary text-text-tertiary'
                                     }`}>
                                     {step.icon}
                                 </div>
@@ -234,15 +239,16 @@ export default function CheckoutPage() {
                 {/* ── Dynamic Wizard Area ── */}
                 <div className="lg:col-span-2">
                     <AnimatePresence mode="wait" custom={currentStep}>
-                        
+
                         {/* ── Step 1: Delivery Details ── */}
                         {currentStep === 1 && (
                             <motion.div
                                 key="step-1"
-                                initial={{ opacity: 0, x: -50 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 50 }}
-                                transition={{ duration: 0.3 }}
+                                variants={wizardStepVariants}
+                                custom={wizardOffset}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
                                 className="space-y-6"
                             >
                                 <div className="card">
@@ -260,221 +266,193 @@ export default function CheckoutPage() {
                                     </div>
 
                                     {/* Saved Addresses */}
-                        {isAuthenticated && showAddresses && addresses.length > 0 && (
-                            <div className="mb-6 grid md:grid-cols-2 gap-4">
-                                {addresses.map((address: any) => (
-                                    <div
-                                        key={address.id}
-                                        onClick={() => useAddress(address)}
-                                        className="border border-border-color rounded-lg p-4 cursor-pointer hover:border-theme-primary hover:bg-bg-tertiary transition-colors relative"
-                                    >
-                                        {address.is_default && (
-                                            <span className="absolute top-2 right-2 px-2 py-1 bg-theme-primary bg-opacity-10 text-theme-primary text-xs rounded">
-                                                Default
-                                            </span>
-                                        )}
-                                        <div className="flex items-start space-x-3">
-                                            <MapPin className="h-5 w-5 text-text-tertiary mt-1 flex-shrink-0" />
-                                            <div>
-                                                <p className="font-semibold text-text-primary">{address.full_name}</p>
-                                                <p className="text-sm text-text-secondary">{address.phone}</p>
-                                                <p className="text-sm text-text-secondary mt-1">
-                                                    {address.address_line1}
-                                                    {address.address_line2 && `, ${address.address_line2}`}
-                                                </p>
-                                                <p className="text-sm text-text-secondary">
-                                                    {address.city}, {address.state} - {address.pincode}
-                                                </p>
-                                            </div>
+                                    {isAuthenticated && showAddresses && addresses.length > 0 && (
+                                        <div className="mb-6 grid md:grid-cols-2 gap-4">
+                                            {addresses.map((address: any) => (
+                                                <div
+                                                    key={address.id}
+                                                    onClick={() => useAddress(address)}
+                                                    className="border border-border-color rounded-lg p-4 cursor-pointer hover:border-theme-primary hover:bg-bg-tertiary transition-colors relative"
+                                                >
+                                                    {address.is_default && (
+                                                        <span className="absolute top-2 right-2 px-2 py-1 bg-theme-primary bg-opacity-10 text-theme-primary text-xs rounded">
+                                                            Default
+                                                        </span>
+                                                    )}
+                                                    <div className="flex items-start space-x-3">
+                                                        <MapPin className="h-5 w-5 text-text-tertiary mt-1 flex-shrink-0" />
+                                                        <div>
+                                                            <p className="font-semibold text-text-primary">{address.full_name}</p>
+                                                            <p className="text-sm text-text-secondary">{address.phone}</p>
+                                                            <p className="text-sm text-text-secondary mt-1">
+                                                                {address.address_line1}
+                                                                {address.address_line2 && `, ${address.address_line2}`}
+                                                            </p>
+                                                            <p className="text-sm text-text-secondary">
+                                                                {address.city}, {address.state} - {address.pincode}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
+                                    )}
+
+                                    <div className="grid md:grid-cols-2 gap-4">
+                                        <FormField id="customer_name" label="Full Name" required error={errors.customer_name?.message}>
+                                            <input id="customer_name" {...register('customer_name')} className="input" {...getFieldAria({ error: errors.customer_name?.message }, 'customer_name')} />
+                                        </FormField>
+
+                                        <FormField id="customer_phone" label="Phone Number" required error={errors.customer_phone?.message}>
+                                            <input id="customer_phone" {...register('customer_phone')} placeholder="+919876543210" className="input" {...getFieldAria({ error: errors.customer_phone?.message }, 'customer_phone')} />
+                                        </FormField>
+
+                                        <FormField id="customer_email" label="Email (Optional)" className="md:col-span-2" error={errors.customer_email?.message}>
+                                            <input id="customer_email" {...register('customer_email')} type="email" className="input" {...getFieldAria({ error: errors.customer_email?.message }, 'customer_email')} />
+                                        </FormField>
+
+                                        <FormField id="delivery_address" label="Address" required className="md:col-span-2" error={errors.delivery_address?.message}>
+                                            <textarea id="delivery_address" {...register('delivery_address')} rows={3} className="input" {...getFieldAria({ error: errors.delivery_address?.message }, 'delivery_address')} />
+                                        </FormField>
+
+                                        <FormField id="delivery_city" label="City" required error={errors.delivery_city?.message}>
+                                            <input id="delivery_city" {...register('delivery_city')} className="input" {...getFieldAria({ error: errors.delivery_city?.message }, 'delivery_city')} />
+                                        </FormField>
+
+                                        <FormField id="delivery_state" label="State" required error={errors.delivery_state?.message}>
+                                            <input id="delivery_state" {...register('delivery_state')} className="input" {...getFieldAria({ error: errors.delivery_state?.message }, 'delivery_state')} />
+                                        </FormField>
+
+                                        <FormField id="delivery_pincode" label="Pincode" required error={errors.delivery_pincode?.message}>
+                                            <div className="relative">
+                                                <input id="delivery_pincode" {...register('delivery_pincode')} placeholder="400001" className="input pr-9" maxLength={6} {...getFieldAria({ error: errors.delivery_pincode?.message }, 'delivery_pincode')} />
+                                                {pincodeLoading && (
+                                                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-text-tertiary" />
+                                                )}
+                                                {!pincodeLoading && pincodeInfo && (
+                                                    pincodeInfo.serviceable
+                                                        ? <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                                                        : <X className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                                                )}
+                                            </div>
+                                            {pincodeInfo?.serviceable && pincodeInfo.standard_days != null && (
+                                                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                                    <Truck className="h-3 w-3" />
+                                                    Delivery available · Est. {pincodeInfo.standard_days} day{pincodeInfo.standard_days !== 1 ? 's' : ''}
+                                                </p>
+                                            )}
+                                            {pincodeInfo && !pincodeInfo.serviceable && (
+                                                <p className="text-xs text-red-600 mt-1">Delivery not available to this pincode</p>
+                                            )}
+                                        </FormField>
+
+                                        <FormField id="delivery_landmark" label="Landmark (Optional)">
+                                            <input id="delivery_landmark" {...register('delivery_landmark')} className="input" />
+                                        </FormField>
+
+                                        <FormField id="notes" label="Order Notes (Optional)" className="md:col-span-2">
+                                            <textarea id="notes" {...register('notes')} rows={2} className="input" />
+                                        </FormField>
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+
+                                {/* Next Step Action */}
+                                <div className="flex justify-end mt-6">
+                                    <Button3D
+                                        onClick={async () => {
+                                            const isValid = await trigger([
+                                                'customer_name', 'customer_phone', 'customer_email',
+                                                'delivery_address', 'delivery_city', 'delivery_state', 'delivery_pincode'
+                                            ])
+                                            if (isValid) setCurrentStep(2)
+                                        }}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        Continue to Payment
+                                        <ArrowRight className="h-4 w-4 ml-2" />
+                                    </Button3D>
+                                </div>
+                            </motion.div>
                         )}
 
-                        <div className="grid md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Full Name *</label>
-                                <input {...register('customer_name')} className="input" />
-                                {errors.customer_name && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.customer_name.message}</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Phone Number *</label>
-                                <input {...register('customer_phone')} placeholder="+919876543210" className="input" />
-                                {errors.customer_phone && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.customer_phone.message}</p>
-                                )}
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium mb-1">Email (Optional)</label>
-                                <input {...register('customer_email')} type="email" className="input" />
-                                {errors.customer_email && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.customer_email.message}</p>
-                                )}
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium mb-1">Address *</label>
-                                <textarea {...register('delivery_address')} rows={3} className="input" />
-                                {errors.delivery_address && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.delivery_address.message}</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">City *</label>
-                                <input {...register('delivery_city')} className="input" />
-                                {errors.delivery_city && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.delivery_city.message}</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">State *</label>
-                                <input {...register('delivery_state')} className="input" />
-                                {errors.delivery_state && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.delivery_state.message}</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Pincode *</label>
-                                <div className="relative">
-                                    <input {...register('delivery_pincode')} placeholder="400001" className="input pr-9" maxLength={6} />
-                                    {pincodeLoading && (
-                                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-text-tertiary" />
-                                    )}
-                                    {!pincodeLoading && pincodeInfo && (
-                                        pincodeInfo.serviceable
-                                            ? <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
-                                            : <X className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
-                                    )}
-                                </div>
-                                {errors.delivery_pincode && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.delivery_pincode.message}</p>
-                                )}
-                                {pincodeInfo?.serviceable && pincodeInfo.standard_days != null && (
-                                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                                        <Truck className="h-3 w-3" />
-                                        Delivery available · Est. {pincodeInfo.standard_days} day{pincodeInfo.standard_days !== 1 ? 's' : ''}
-                                    </p>
-                                )}
-                                {pincodeInfo && !pincodeInfo.serviceable && (
-                                    <p className="text-xs text-red-600 mt-1">Delivery not available to this pincode</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Landmark (Optional)</label>
-                                <input {...register('delivery_landmark')} className="input" />
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium mb-1">Order Notes (Optional)</label>
-                                <textarea {...register('notes')} rows={2} className="input" />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Next Step Action */}
-                    <div className="flex justify-end mt-6">
-                            <Button3D 
-                                onClick={async () => {
-                                    const isValid = await trigger([
-                                        'customer_name', 'customer_phone', 'customer_email', 
-                                        'delivery_address', 'delivery_city', 'delivery_state', 'delivery_pincode'
-                                    ])
-                                    if (isValid) setCurrentStep(2)
-                                }} 
-                                className="w-full sm:w-auto"
+                        {/* ── Step 2: Payment Method ── */}
+                        {currentStep === 2 && (
+                            <motion.div
+                                key="step-2"
+                                variants={wizardStepVariants}
+                                custom={wizardOffset}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                className="card"
                             >
-                                Continue to Payment
-                                <ArrowRight className="h-4 w-4 ml-2" />
-                            </Button3D>
-                        </div>
-                    </motion.div>
-                )}
+                                <h2 className="text-xl font-bold mb-4 text-text-primary">Payment Method</h2>
 
-                {/* ── Step 2: Payment Method ── */}
-                {currentStep === 2 && (
-                    <motion.div
-                        key="step-2"
-                        initial={{ opacity: 0, x: -50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 50 }}
-                        transition={{ duration: 0.3 }}
-                        className="card"
-                    >
-                        <h2 className="text-xl font-bold mb-4 text-text-primary">Payment Method</h2>
+                                <div className="space-y-3">
+                                    <label className="flex items-center space-x-3 p-4 border border-border-color rounded-lg cursor-pointer hover:bg-bg-tertiary">
+                                        <input {...register('payment_method')} type="radio" value="COD" className="text-theme-primary" />
+                                        <div>
+                                            <p className="font-medium">Cash on Delivery</p>
+                                            <p className="text-sm text-text-secondary">Pay when you receive your order</p>
+                                        </div>
+                                    </label>
 
-                        <div className="space-y-3">
-                            <label className="flex items-center space-x-3 p-4 border border-border-color rounded-lg cursor-pointer hover:bg-bg-tertiary">
-                                <input {...register('payment_method')} type="radio" value="COD" className="text-theme-primary" />
-                                <div>
-                                    <p className="font-medium">Cash on Delivery</p>
-                                    <p className="text-sm text-text-secondary">Pay when you receive your order</p>
+                                    <label className="flex items-center space-x-3 p-4 border border-border-color rounded-lg cursor-pointer hover:bg-bg-tertiary">
+                                        <input {...register('payment_method')} type="radio" value="ONLINE" className="text-theme-primary" />
+                                        <div>
+                                            <p className="font-medium">Online Payment</p>
+                                            <p className="text-sm text-text-secondary">Pay with Card, UPI, or Net Banking</p>
+                                        </div>
+                                    </label>
                                 </div>
-                            </label>
 
-                            <label className="flex items-center space-x-3 p-4 border border-border-color rounded-lg cursor-pointer hover:bg-bg-tertiary">
-                                <input {...register('payment_method')} type="radio" value="ONLINE" className="text-theme-primary" />
-                                <div>
-                                    <p className="font-medium">Online Payment</p>
-                                    <p className="text-sm text-text-secondary">Pay with Card, UPI, or Net Banking</p>
+                                <div className="flex flex-col sm:flex-row justify-between gap-4 mt-6">
+                                    <Button3D
+                                        variant="secondary"
+                                        onClick={() => setCurrentStep(1)}
+                                        className="order-2 sm:order-1"
+                                    >
+                                        <ArrowLeft className="h-4 w-4 mr-2" />
+                                        Back
+                                    </Button3D>
+                                    <Button3D
+                                        onClick={() => setCurrentStep(3)}
+                                        className="order-1 sm:order-2"
+                                    >
+                                        Review Order
+                                        <ArrowRight className="h-4 w-4 ml-2" />
+                                    </Button3D>
                                 </div>
-                            </label>
-                        </div>
+                            </motion.div>
+                        )}
 
-                        <div className="flex flex-col sm:flex-row justify-between gap-4 mt-6">
-                            <Button3D 
-                                variant="secondary"
-                                onClick={() => setCurrentStep(1)} 
-                                className="order-2 sm:order-1"
+                        {/* ── Step 3: Final Review Confirmation (Handled by the sticky Summary block acting as submit, but we provide an empty placeholder here) ── */}
+                        {currentStep === 3 && (
+                            <motion.div
+                                key="step-3"
+                                variants={wizardStepVariants}
+                                custom={wizardOffset}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                className="card bg-theme-primary/5 border-theme-primary/20 flex flex-col items-center justify-center p-8 text-center"
                             >
-                                <ArrowLeft className="h-4 w-4 mr-2" />
-                                Back
-                            </Button3D>
-                            <Button3D 
-                                onClick={() => setCurrentStep(3)} 
-                                className="order-1 sm:order-2"
-                            >
-                                Review Order
-                                <ArrowRight className="h-4 w-4 ml-2" />
-                            </Button3D>
-                        </div>
-                    </motion.div>
-                )}
+                                <Check className="h-16 w-16 text-green-500 mb-4 bg-green-500/10 p-4 rounded-full" />
+                                <h2 className="text-2xl font-bold text-text-primary mb-2">Ready to Complete?</h2>
+                                <p className="text-text-secondary mb-6 max-w-md">Please review your order summary on the right. Once you confirm the details, you can place your order securely.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentStep(2)}
+                                    className="btn btn-ghost"
+                                >
+                                    <ArrowLeft className="h-4 w-4 mr-2" />
+                                    Back to Payment
+                                </button>
+                            </motion.div>
+                        )}
 
-                {/* ── Step 3: Final Review Confirmation (Handled by the sticky Summary block acting as submit, but we provide an empty placeholder here) ── */}
-                {currentStep === 3 && (
-                    <motion.div
-                        key="step-3"
-                        initial={{ opacity: 0, x: -50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 50 }}
-                        transition={{ duration: 0.3 }}
-                        className="card bg-theme-primary/5 border-theme-primary/20 flex flex-col items-center justify-center p-8 text-center"
-                    >
-                        <Check className="h-16 w-16 text-green-500 mb-4 bg-green-500/10 p-4 rounded-full" />
-                        <h2 className="text-2xl font-bold text-text-primary mb-2">Ready to Complete?</h2>
-                        <p className="text-text-secondary mb-6 max-w-md">Please review your order summary on the right. Once you confirm the details, you can place your order securely.</p>
-                        <button 
-                            type="button" 
-                            onClick={() => setCurrentStep(2)} 
-                            className="btn btn-ghost"
-                        >
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back to Payment
-                        </button>
-                    </motion.div>
-                )}
-
-                </AnimatePresence>
-            </div>
+                    </AnimatePresence>
+                </div>
 
                 {/* Order Summary (Sticky Right Panel) */}
                 <div className="lg:col-span-1">
@@ -511,41 +489,16 @@ export default function CheckoutPage() {
 
                         {/* Coupon Input */}
                         <div className="mb-4">
-                            {couponData ? (
-                                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
-                                    <div className="flex items-center gap-2">
-                                        <Check className="h-4 w-4 text-green-600" />
-                                        <span className="text-sm font-semibold text-green-700 dark:text-green-300">
-                                            {couponData.code} applied
-                                        </span>
-                                    </div>
-                                    <button aria-label="Remove coupon" onClick={removeCoupon} className="text-text-tertiary hover:text-red-500">
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex gap-2">
-                                    <div className="relative flex-1">
-                                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
-                                        <input
-                                            type="text"
-                                            value={couponCode}
-                                            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                                            onKeyDown={(e) => e.key === 'Enter' && applyCoupon()}
-                                            placeholder="Coupon code"
-                                            className="input pl-9 text-sm"
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={applyCoupon}
-                                        disabled={couponLoading || !couponCode}
-                                        className="btn btn-outline btn-sm px-4 whitespace-nowrap"
-                                    >
-                                        {couponLoading ? '...' : 'Apply'}
-                                    </button>
-                                </div>
-                            )}
+                            <CouponField
+                                code={couponCode}
+                                onCodeChange={setCouponCode}
+                                onApply={applyCoupon}
+                                onRemove={removeCoupon}
+                                loading={couponLoading}
+                                appliedCode={couponData?.code ?? null}
+                                placeholder="Coupon code"
+                                className="space-y-2"
+                            />
                         </div>
 
                         <div className="border-t border-border-color pt-4 mb-6">

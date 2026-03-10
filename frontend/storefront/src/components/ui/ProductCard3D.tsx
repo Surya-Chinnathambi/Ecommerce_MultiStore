@@ -6,10 +6,11 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/components/ui/Toaster'
 import { useState, useEffect } from 'react'
 import QuickViewModal from '@/components/QuickViewModal'
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
+import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import ProductCanvas from './ProductCanvas'
+import { MOTION_DURATION, MOTION_EASE, motionTransition } from '@/lib/motion'
 
 interface Product {
     id: string
@@ -34,11 +35,12 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
     const [imageLoaded, setImageLoaded] = useState(false)
     const [showQuickView, setShowQuickView] = useState(false)
+    const shouldReduceMotion = useReducedMotion()
 
     // 3D Tilt Effect
     const x = useMotionValue(0)
     const y = useMotionValue(0)
-    
+
     const mouseXSpring = useSpring(x, { stiffness: 300, damping: 20 })
     const mouseYSpring = useSpring(y, { stiffness: 300, damping: 20 })
 
@@ -85,18 +87,18 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
     }
 
     return (
-        <motion.div 
-            style={{ perspective: 1000 }}
-            className="group relative"
-            initial={{ opacity: 0, y: 20 }}
+        <motion.div
+            className="group relative perspective-1000"
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+            transition={motionTransition(!!shouldReduceMotion, { type: 'spring', stiffness: 300, damping: 24 })}
         >
             <motion.div
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
                 style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
-                whileHover={{ scale: 1.02 }}
+                whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+                transition={motionTransition(!!shouldReduceMotion, { duration: MOTION_DURATION.fast, ease: MOTION_EASE })}
                 className={twMerge(
                     "block rounded-[var(--radius-2xl)] border border-border-color bg-bg-primary overflow-hidden transition-colors hover:border-border-strong",
                     viewMode === 'list' ? 'flex flex-row p-4 gap-5' : 'flex flex-col'
@@ -106,17 +108,16 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
                     "flex-1", viewMode === 'list' && "flex flex-row gap-5"
                 )}>
                     {/* Image Area with 3D Canvas Background */}
-                    <div 
+                    <div
                         className={twMerge(
-                            "relative overflow-hidden bg-bg-tertiary",
+                            "relative overflow-hidden bg-bg-tertiary translate-z-20",
                             viewMode === 'list' ? 'w-28 sm:w-36 rounded-[var(--radius-xl)] flex-shrink-0 aspect-square' : 'aspect-[4/3] w-full'
                         )}
-                        style={{ transform: 'translateZ(20px)' }}
                     >
                         <div className="absolute inset-0 z-0 opacity-40 group-hover:opacity-100 transition-opacity">
                             <ProductCanvas imageUrl={product.thumbnail} interactive={false} />
                         </div>
-                        
+
                         {!imageLoaded && <div className="absolute inset-0 skeleton" />}
                         {product.thumbnail ? (
                             <img
@@ -133,7 +134,7 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
                         )}
 
                         {/* Top badges */}
-                        <div className="absolute top-3 left-3 flex flex-col gap-1.5" style={{ transform: 'translateZ(30px)' }}>
+                        <div className="absolute top-3 left-3 flex flex-col gap-1.5 translate-z-30">
                             {product.discount_percent > 0 && (
                                 <span className="badge badge-danger shadow-sm text-[10px] font-bold">
                                     <Zap className="h-2.5 w-2.5" />
@@ -154,9 +155,9 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
 
                         {/* Action buttons (Grid View) */}
                         {viewMode === 'grid' && (
-                            <div className="absolute top-3 right-3 flex flex-col gap-2" style={{ transform: 'translateZ(40px)' }}>
+                            <div className="absolute top-3 right-3 flex flex-col gap-2 translate-z-40">
                                 <motion.button
-                                    whileTap={{ scale: 0.9 }}
+                                    whileTap={shouldReduceMotion ? undefined : { scale: 0.9 }}
                                     onClick={handleWishlist}
                                     className={clsx(
                                         "h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-all duration-200 backdrop-blur-sm",
@@ -170,9 +171,8 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
                     </div>
 
                     {/* Card Body */}
-                    <div 
-                        className={clsx("flex flex-col justify-between", viewMode === 'grid' ? "p-4" : "flex-1 min-w-0 py-1 pe-4")}
-                        style={{ transform: 'translateZ(25px)' }}
+                    <div
+                        className={clsx("flex flex-col justify-between translate-z-25", viewMode === 'grid' ? "p-4" : "flex-1 min-w-0 py-1 pe-4")}
                     >
                         <div>
                             <h3 className="font-semibold text-text-primary group-hover:text-theme-primary transition-colors line-clamp-2 leading-snug mb-2 text-sm md:text-base">
@@ -188,10 +188,10 @@ export default function ProductCard3D({ product, viewMode = 'grid' }: ProductCar
                                     </span>
                                 </div>
                             </div>
-                            
+
                             {viewMode === 'list' && (
                                 <motion.button
-                                    whileTap={{ scale: 0.9 }}
+                                    whileTap={shouldReduceMotion ? undefined : { scale: 0.9 }}
                                     onClick={handleAddToCart}
                                     className="btn btn-primary btn-sm flex-shrink-0"
                                 >

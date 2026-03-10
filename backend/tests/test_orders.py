@@ -121,6 +121,84 @@ class TestOrderPlacement:
             status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
 
+    def test_place_order_rejects_zero_quantity(self, client, test_store, db_session):
+        """Checkout should reject non-positive quantities."""
+        from app.models.models import Product
+
+        product = Product(
+            id=uuid.uuid4(),
+            store_id=test_store.id,
+            external_id="ZERO-QTY-001",
+            name="Zero Qty Product",
+            slug="zero-qty-product",
+            mrp=149.99,
+            selling_price=99.99,
+            quantity=10,
+            is_active=True,
+            is_in_stock=True,
+        )
+        db_session.add(product)
+        db_session.commit()
+
+        response = client.post(
+            "/api/v1/storefront/orders",
+            json={
+                "customer_name": "Bad Qty Buyer",
+                "customer_phone": "9990001111",
+                "customer_email": "badqty@example.com",
+                "delivery_address": "123 Bad Qty Street",
+                "delivery_city": "Qtycity",
+                "delivery_state": "TS",
+                "delivery_pincode": "123456",
+                "payment_method": "COD",
+                "items": [{"product_id": str(product.id), "quantity": 0}],
+            },
+            headers={"X-Store-ID": str(test_store.id)},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_place_order_merges_duplicate_items(self, client, test_store, db_session):
+        """Duplicate product lines should be merged before stock deduction."""
+        from app.models.models import Product
+
+        product = Product(
+            id=uuid.uuid4(),
+            store_id=test_store.id,
+            external_id="MERGE-ITEM-001",
+            name="Merge Item Product",
+            slug="merge-item-product",
+            mrp=299.99,
+            selling_price=199.99,
+            quantity=20,
+            is_active=True,
+            is_in_stock=True,
+        )
+        db_session.add(product)
+        db_session.commit()
+
+        response = client.post(
+            "/api/v1/storefront/orders",
+            json={
+                "customer_name": "Merge Buyer",
+                "customer_phone": "8887776666",
+                "customer_email": "merge@example.com",
+                "delivery_address": "88 Merge Road",
+                "delivery_city": "Mergecity",
+                "delivery_state": "TS",
+                "delivery_pincode": "654321",
+                "payment_method": "COD",
+                "items": [
+                    {"product_id": str(product.id), "quantity": 2},
+                    {"product_id": str(product.id), "quantity": 3},
+                ],
+            },
+            headers={"X-Store-ID": str(test_store.id)},
+        )
+
+        assert response.status_code in (status.HTTP_200_OK, status.HTTP_201_CREATED)
+        db_session.refresh(product)
+        assert product.quantity == 15
+
 
 # ── Admin order management ────────────────────────────────────────────────────
 

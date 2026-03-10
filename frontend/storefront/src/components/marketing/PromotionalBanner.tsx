@@ -23,7 +23,7 @@ export default function PromotionalBanner() {
 
     const fetchBanners = async () => {
         try {
-            const response = await marketingApi.getBanners({ banner_type: 'hero' })
+            const response = await marketingApi.getBanners()
             // Backend returns a plain array of banners
             const list: Banner[] = Array.isArray(response.data)
                 ? response.data

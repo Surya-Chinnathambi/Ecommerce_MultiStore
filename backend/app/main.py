@@ -190,7 +190,7 @@ async def global_exception_handler(request: Request, exc: Exception):
             "success": False,
             "error": {
                 "code": "INTERNAL_ERROR",
-                "message": "An internal error occurred. Please try again later."
+                "message": str(exc)
             },
             "timestamp": time.time()
         }

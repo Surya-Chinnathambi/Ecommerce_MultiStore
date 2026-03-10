@@ -3,6 +3,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '@/lib/api'
 import { Package, Plus, Edit3 } from 'lucide-react'
 import { toast } from '@/components/ui/Toaster'
+import DataGrid from '@/components/ui/DataGrid'
+import PaginationControls from '@/components/ui/PaginationControls'
+import EmptyState from '@/components/ui/EmptyState'
+import RowActions, { RowActionButton } from '@/components/ui/RowActions'
 
 export default function SellerProductsPage() {
     const qc = useQueryClient()
@@ -57,6 +61,7 @@ export default function SellerProductsPage() {
 
     const products: any[] = data?.data ?? []
     const total: number = data?.meta?.total ?? 0
+    const totalPages = Math.max(1, Math.ceil(total / 20))
 
     return (
         <div className="bg-bg-secondary min-h-screen animate-fade-in">
@@ -128,13 +133,23 @@ export default function SellerProductsPage() {
                         {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16 rounded-xl" />)}
                     </div>
                 ) : products.length === 0 ? (
-                    <div className="empty-state">
-                        <Package className="empty-state-icon" />
-                        <h2 className="empty-state-title">No listings yet</h2>
-                        <p className="empty-state-description">List your first product to start selling.</p>
-                    </div>
+                    <EmptyState
+                        icon={<Package className="h-12 w-12" />}
+                        title="No listings yet"
+                        description="List your first product to start selling."
+                    />
                 ) : (
-                    <div className="card overflow-hidden">
+                    <DataGrid
+                        className="card overflow-hidden"
+                        footer={
+                            <PaginationControls
+                                page={page}
+                                totalPages={totalPages}
+                                onPrev={() => setPage(p => Math.max(1, p - 1))}
+                                onNext={() => setPage(p => Math.min(totalPages, p + 1))}
+                            />
+                        }
+                    >
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-border-color bg-bg-tertiary/30">
@@ -164,45 +179,32 @@ export default function SellerProductsPage() {
                                             {p.dispatch_days}d
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <button
-                                                aria-label="Edit listing"
-                                                title="Edit listing"
-                                                onClick={() => {
-                                                    setEditId(p.id)
-                                                    setForm({
-                                                        product_id: p.product_id,
-                                                        price: String(p.price),
-                                                        stock: String(p.stock),
-                                                        dispatch_days: String(p.dispatch_days),
-                                                        return_days: String(p.return_days),
-                                                    })
-                                                    setShowForm(true)
-                                                }}
-                                                className="p-1.5 rounded-lg text-text-secondary hover:text-theme-primary hover:bg-theme-primary/10 transition-colors"
-                                            >
-                                                <Edit3 className="h-4 w-4" />
-                                            </button>
+                                            <RowActions>
+                                                <RowActionButton
+                                                    aria-label="Edit listing"
+                                                    title="Edit listing"
+                                                    tone="primary"
+                                                    iconOnly
+                                                    icon={<Edit3 className="h-4 w-4" />}
+                                                    onClick={() => {
+                                                        setEditId(p.id)
+                                                        setForm({
+                                                            product_id: p.product_id,
+                                                            price: String(p.price),
+                                                            stock: String(p.stock),
+                                                            dispatch_days: String(p.dispatch_days),
+                                                            return_days: String(p.return_days),
+                                                        })
+                                                        setShowForm(true)
+                                                    }}
+                                                />
+                                            </RowActions>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-
-                        {/* Pagination */}
-                        {total > 20 && (
-                            <div className="flex items-center justify-between p-4 border-t border-border-color">
-                                <span className="text-sm text-text-secondary">
-                                    {(page - 1) * 20 + 1}–{Math.min(page * 20, total)} of {total}
-                                </span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page === 1} className="btn btn-ghost btn-sm">Prev</button>
-                                    <button onClick={() => setPage(p => p + 1)}
-                                        disabled={page * 20 >= total} className="btn btn-ghost btn-sm">Next</button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    </DataGrid>
                 )}
             </div>
         </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Settings, Database, FileSpreadsheet, Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import api from '../lib/api';
+import DataGrid from '@/components/ui/DataGrid';
 
 interface POSConfig {
     pos_type: string;
@@ -624,7 +625,7 @@ export default function POSIntegrationPage() {
                         <h2 className="text-lg font-semibold text-text-primary mb-4">
                             Recent Sync Logs
                         </h2>
-                        <div className="overflow-x-auto">
+                        <DataGrid className="border border-border-color rounded-xl overflow-hidden">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-border-color">
@@ -668,7 +669,7 @@ export default function POSIntegrationPage() {
                                     ))}
                                 </tbody>
                             </table>
-                        </div>
+                        </DataGrid>
                     </div>
                 )}
             </div>

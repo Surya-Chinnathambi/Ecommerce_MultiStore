@@ -13,9 +13,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.models.models import Order, OrderItem, Product, Store, OrderStatus, PaymentStatus
 from app.models.marketplace_models import Coupon, CouponUsage, CouponType
 from app.services.websocket_manager import notify_new_order
+from app.services.cache_service import cache_service
+from app.core.redis import redis_client, CacheKeys
 
 logger = logging.getLogger(__name__)
 
@@ -41,37 +44,58 @@ class OrderService:
         if not items_data:
             raise ValueError("Order must contain at least one item")
 
+        # Consolidate duplicate lines for the same product and validate quantity.
+        merged_items: Dict[str, int] = {}
+        for item in items_data:
+            product_id = str(item.get("product_id") or "").strip()
+            quantity = int(item.get("quantity") or 0)
+
+            if not product_id:
+                raise ValueError("Each order item must include product_id")
+            if quantity <= 0:
+                raise ValueError("Item quantity must be greater than zero")
+            if quantity > 100:
+                raise ValueError("Maximum quantity per line item is 100")
+
+            merged_items[product_id] = merged_items.get(product_id, 0) + quantity
+
         # Recalculate totals and check inventory
         subtotal = 0
         items_to_create = []
         products_to_update = []
 
-        for item_data in items_data:
+        for product_id, quantity in merged_items.items():
             product = self.db.query(Product).filter(
-                Product.id == item_data['product_id'],
+                Product.id == product_id,
                 Product.store_id == store_id
             ).with_for_update().first() # Lock the row for inventory safety
 
             if not product:
-                raise ValueError(f"Product {item_data['product_id']} not found")
+                raise ValueError(f"Product {product_id} not found")
 
-            if product.quantity < item_data['quantity']:
+            if not product.is_active:
+                raise ValueError(f"Product {product.name} is inactive")
+
+            if not product.is_in_stock:
+                raise ValueError(f"Product {product.name} is out of stock")
+
+            if product.quantity < quantity:
                 raise ValueError(f"Insufficient stock for {product.name}")
 
             item_price = product.selling_price
-            item_subtotal = item_price * item_data['quantity']
+            item_subtotal = item_price * quantity
             subtotal += item_subtotal
 
             items_to_create.append({
                 'product_id': product.id,
                 'product_name': product.name,
-                'quantity': item_data['quantity'],
+                'quantity': quantity,
                 'unit_price': item_price,
                 'subtotal': item_subtotal
             })
             
             # Prepare inventory update
-            product.quantity -= item_data['quantity']
+            product.quantity -= quantity
             if product.quantity == 0:
                 product.is_in_stock = False
             products_to_update.append(product)
@@ -93,15 +117,32 @@ class OrderService:
             
             if coupon:
                 now = datetime.utcnow()
-                # Simplified validation for service (can be expanded)
-                if (not coupon.valid_until or coupon.valid_until >= now) and \
-                   (not coupon.min_order_amount or subtotal >= coupon.min_order_amount):
-                    
-                    if coupon.type == CouponType.PERCENT:
-                        discount_amount = subtotal * (coupon.value / 100.0)
-                    elif coupon.type == CouponType.FLAT:
-                        discount_amount = min(coupon.value, subtotal)
-                    
+                is_valid_window = (not coupon.valid_from or coupon.valid_from <= now) and \
+                    (not coupon.valid_until or coupon.valid_until >= now)
+                has_total_usage = coupon.max_uses_total is None or (coupon.used_count or 0) < coupon.max_uses_total
+                meets_min_amount = (not coupon.min_order_amount) or subtotal >= coupon.min_order_amount
+
+                per_user_ok = True
+                if user_id and coupon.max_uses_per_user:
+                    user_usage_count = self.db.query(func.count(CouponUsage.id)).filter(
+                        CouponUsage.coupon_id == coupon.id,
+                        CouponUsage.user_id == user_id,
+                    ).scalar() or 0
+                    per_user_ok = user_usage_count < coupon.max_uses_per_user
+
+                if is_valid_window and has_total_usage and meets_min_amount and per_user_ok:
+                    coupon_type = getattr(coupon, "coupon_type", getattr(coupon, "type", None))
+                    discount_value = float(getattr(coupon, "discount_value", getattr(coupon, "value", 0)) or 0)
+
+                    if coupon_type == CouponType.PERCENT:
+                        discount_amount = subtotal * (discount_value / 100.0)
+                        if coupon.max_discount_cap:
+                            discount_amount = min(discount_amount, float(coupon.max_discount_cap))
+                    elif coupon_type == CouponType.FLAT:
+                        discount_amount = min(discount_value, subtotal)
+                    elif coupon_type == CouponType.FREE_SHIPPING:
+                        discount_amount = shipping_cost
+
                     discount_amount = round(discount_amount, 2)
                     applied_coupon = coupon
 
@@ -109,7 +150,15 @@ class OrderService:
         total = max(total, 0)
 
         # Order number
-        order_number = f"ORD-{''.join(random.choices(string.ascii_uppercase + string.digits, k=8))}"
+        order_number = None
+        for _ in range(5):
+            candidate = f"ORD-{''.join(random.choices(string.ascii_uppercase + string.digits, k=8))}"
+            exists = self.db.query(Order.id).filter(Order.order_number == candidate).first()
+            if not exists:
+                order_number = candidate
+                break
+        if not order_number:
+            raise ValueError("Could not generate a unique order number")
 
         # Create Order record
         order = Order(
@@ -127,9 +176,12 @@ class OrderService:
             subtotal=subtotal,
             tax_amount=tax,
             delivery_charge=shipping_cost,
+            discount_amount=discount_amount,
             total_amount=total,
+            coupon_code=applied_coupon.code if applied_coupon else None,
+            coupon_id=applied_coupon.id if applied_coupon else None,
             order_status=OrderStatus.PENDING,
-            payment_status=PaymentStatus.COD if order_data.get('payment_method') == 'COD' else PaymentStatus.PENDING
+            payment_status=PaymentStatus.COD if order_data.get('payment_method', 'COD').upper() == 'COD' else PaymentStatus.PENDING
         )
 
         self.db.add(order)
@@ -157,6 +209,17 @@ class OrderService:
             applied_coupon.used_count = (applied_coupon.used_count or 0) + 1
 
         self.db.flush() # Ensure everything is ready but don't commit yet
+
+        # Inventory changes affect storefront/product list/search cache immediately.
+        await cache_service.invalidate_store_products(str(store_id))
+        await redis_client.delete_pattern(f"store:{store_id}:search:*")
+
+        inventory_keys = [
+            CacheKeys.inventory(str(store_id), str(item["product_id"]))
+            for item in items_to_create
+        ]
+        if inventory_keys:
+            await redis_client.delete(*inventory_keys)
 
         # Async notifications can be handled by the caller after commit
         return order

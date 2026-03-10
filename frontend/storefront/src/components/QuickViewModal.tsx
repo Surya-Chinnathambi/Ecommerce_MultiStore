@@ -2,10 +2,12 @@ import { createPortal } from 'react-dom'
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { X, ShoppingCart, Heart, ExternalLink, Star, PackageX } from 'lucide-react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/components/ui/Toaster'
+import { modalDropVariants, motionTransition } from '@/lib/motion'
 
 export interface QuickViewProduct {
     id: string
@@ -28,6 +30,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
     const addItem = useCartStore(s => s.addItem)
     const { isWishlisted, toggleWishlist } = useWishlistStore()
     const isAuthenticated = useAuthStore(s => s.isAuthenticated)
+    const shouldReduceMotion = useReducedMotion()
 
     const wishlisted = isWishlisted(product.id)
 
@@ -77,12 +80,20 @@ export default function QuickViewModal({ product, onClose }: Props) {
             className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6"
             onClick={onClose}
         >
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" />
+            <motion.div
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                initial={shouldReduceMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={motionTransition(!!shouldReduceMotion, { duration: 0.2 })}
+            />
 
             {/* Modal panel */}
-            <div
-                className="relative z-10 w-full max-w-2xl bg-bg-primary rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+            <motion.div
+                className="relative z-10 w-full max-w-2xl bg-bg-primary rounded-2xl shadow-2xl overflow-hidden"
                 onClick={e => e.stopPropagation()}
+                variants={modalDropVariants}
+                initial={shouldReduceMotion ? false : 'hidden'}
+                animate="visible"
             >
                 {/* Close button */}
                 <button
@@ -198,7 +209,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
         </div>,
         document.body
     )

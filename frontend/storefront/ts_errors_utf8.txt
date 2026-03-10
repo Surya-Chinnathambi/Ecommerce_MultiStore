@@ -1,0 +1,2 @@
+﻿src/pages/CartPage.tsx(5,31): error TS6133: 'ShoppingBag' is declared but its value is never read.
+src/store/cartStore.ts(83,44): error TS6133: 'version' is declared but its value is never read.

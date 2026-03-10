@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 from typing import List, Optional
@@ -28,7 +28,7 @@ class BannerCreate(BaseModel):
     description: Optional[str] = None
     image_url: Optional[str] = None
     link_url: Optional[str] = None
-    banner_type: str = "promotional"
+    banner_type: BannerType = BannerType.PROMOTIONAL
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     display_order: int = 0
@@ -127,11 +127,18 @@ class LoyaltyPointsResponse(BaseModel):
 
 # ================= Helper Functions =================
 
-def get_store_from_header(db: Session, store_id: str) -> Store:
-    """Get store from store_id parameter"""
+def get_store_from_context(db: Session, request: Request, store_id: Optional[str] = None) -> Store:
+    """Resolve store via query param or tenant middleware state."""
+    resolved_store_id = store_id
+    if not resolved_store_id:
+        resolved_store_id = getattr(request.state, "store_id", None)
+
+    if not resolved_store_id:
+        raise HTTPException(status_code=404, detail="Store not found")
+
     from uuid import UUID
     try:
-        store_uuid = UUID(store_id)
+        store_uuid = UUID(resolved_store_id)
         store = db.query(Store).filter(Store.id == store_uuid).first()
         if not store:
             raise HTTPException(status_code=404, detail="Store not found")
@@ -149,16 +156,14 @@ def generate_referral_code() -> str:
 
 @router.get("/banners", response_model=List[BannerResponse])
 def get_active_banners(
+    request: Request,
     banner_type: Optional[str] = None,
     store_id: str = None,
     include_inactive: bool = False,
     db: Session = Depends(get_db)
 ):
     """Get promotional banners. Pass include_inactive=true for admin view."""
-    if not store_id:
-        return []  # Return empty list if no store_id provided
-    
-    store = get_store_from_header(db, store_id)
+    store = get_store_from_context(db, request, store_id)
     now = datetime.utcnow()
     
     if include_inactive:
@@ -251,15 +256,13 @@ def track_banner_click(
 
 @router.get("/flash-sales", response_model=List[FlashSaleResponse])
 def get_flash_sales(
+    request: Request,
     active_only: bool = True,
     store_id: str = None,
     db: Session = Depends(get_db)
 ):
     """Get all flash sales"""
-    if not store_id:
-        return []  # Return empty list if no store_id provided
-    
-    store = get_store_from_header(db, store_id)
+    store = get_store_from_context(db, request, store_id)
     now = datetime.utcnow()
     
     query = db.query(FlashSale).filter(
@@ -367,15 +370,13 @@ def create_flash_sale(
 
 @router.get("/social-proof/recent", response_model=List[SocialProofResponse])
 def get_recent_activities(
+    request: Request,
     limit: int = 10,
     store_id: str = None,
     db: Session = Depends(get_db)
 ):
     """Get recent social proof activities"""
-    if not store_id:
-        return []  # Return empty list if no store_id provided
-    
-    store = get_store_from_header(db, store_id)
+    store = get_store_from_context(db, request, store_id)
     
     activities = db.query(SocialProofActivity).filter(
         SocialProofActivity.store_id == store.id
@@ -388,13 +389,14 @@ def get_recent_activities(
 
 @router.post("/social-proof/activity")
 def create_social_activity(
+    request: Request,
     product_id: Optional[str] = None,
     activity_type: str = "viewing",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create social proof activity"""
-    store = get_store_from_header(db)
+    store = get_store_from_context(db, request)
     
     # Anonymize user name
     first_name = current_user.full_name.split()[0] if current_user.full_name else "Someone"
@@ -422,11 +424,12 @@ def create_social_activity(
 
 @router.get("/referral/my-code", response_model=ReferralCodeResponse)
 def get_my_referral_code(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get user's referral code (create if doesn't exist)"""
-    store = get_store_from_header(db)
+    store = get_store_from_context(db, request)
     
     # Check if user already has a code
     referral_code = db.query(ReferralCode).filter(
@@ -458,12 +461,13 @@ def get_my_referral_code(
 
 @router.post("/referral/apply")
 def apply_referral_code(
+    request: Request,
     referral_data: ReferralApply,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Apply referral code for new user"""
-    store = get_store_from_header(db)
+    store = get_store_from_context(db, request)
     
     # Check if user already used a referral
     existing_referral = db.query(Referral).filter(
@@ -516,11 +520,12 @@ def apply_referral_code(
 
 @router.get("/referral/stats")
 def get_referral_stats(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get user's referral statistics"""
-    store = get_store_from_header(db)
+    store = get_store_from_context(db, request)
     
     referral_code = db.query(ReferralCode).filter(
         and_(
@@ -567,11 +572,12 @@ def get_referral_stats(
 
 @router.get("/loyalty/points", response_model=LoyaltyPointsResponse)
 def get_loyalty_points(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get user's loyalty points"""
-    store = get_store_from_header(db)
+    store = get_store_from_context(db, request)
     
     loyalty = db.query(LoyaltyPoints).filter(
         and_(
@@ -595,12 +601,13 @@ def get_loyalty_points(
 
 @router.post("/loyalty/earn")
 def earn_loyalty_points(
+    request: Request,
     order_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Earn loyalty points from order (auto-called after order completion)"""
-    store = get_store_from_header(db)
+    store = get_store_from_context(db, request)
     
     # Get loyalty account
     loyalty = db.query(LoyaltyPoints).filter(

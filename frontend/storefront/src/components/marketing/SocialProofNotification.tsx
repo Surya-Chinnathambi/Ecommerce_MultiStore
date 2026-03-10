@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ShoppingBag, Eye, ShoppingCart, X } from 'lucide-react'
 import { marketingApi } from '@/lib/marketing-api'
+import { motion, useReducedMotion } from 'framer-motion'
+import { MOTION_DURATION, MOTION_EASE, motionTransition } from '@/lib/motion'
 
 interface Activity {
     id: string
@@ -27,6 +29,7 @@ export default function SocialProofNotification() {
     const [activities, setActivities] = useState<Activity[]>([])
     const [currentActivity, setCurrentActivity] = useState<Activity | null>(null)
     const [isVisible, setIsVisible] = useState(false)
+    const shouldReduceMotion = useReducedMotion()
 
     useEffect(() => {
         fetchActivities()
@@ -76,7 +79,12 @@ export default function SocialProofNotification() {
     const message = activityMessages[currentActivity.activity_type]
 
     return (
-        <div className="fixed bottom-6 left-6 z-50 animate-slide-in-left">
+        <motion.div
+            className="fixed bottom-6 left-6 z-50"
+            initial={shouldReduceMotion ? false : { opacity: 0, x: -18 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={motionTransition(!!shouldReduceMotion, { duration: MOTION_DURATION.base, ease: MOTION_EASE })}
+        >
             <div className="bg-bg-primary rounded-lg shadow-2xl p-4 max-w-sm border-l-4 border-theme-primary flex items-start gap-3">
                 {/* Icon */}
                 <div className="bg-gradient-to-br from-theme-primary to-theme-accent p-2 rounded-full flex-shrink-0">
@@ -113,7 +121,7 @@ export default function SocialProofNotification() {
                     <X className="w-4 h-4" />
                 </button>
             </div>
-        </div>
+        </motion.div>
     )
 }
 

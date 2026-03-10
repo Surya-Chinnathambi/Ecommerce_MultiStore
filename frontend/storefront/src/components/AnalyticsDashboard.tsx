@@ -9,6 +9,7 @@ import {
     PieChart, Pie, Cell
 } from 'recharts'
 import OfferSuggestions from '@/components/OfferSuggestions'
+import DataGrid from '@/components/ui/DataGrid'
 
 interface DashboardStats {
     today_orders: number
@@ -506,7 +507,7 @@ export default function AnalyticsDashboard() {
                         <AlertTriangle className="text-yellow-500" />
                         Inventory Alerts ({alerts.length})
                     </h2>
-                    <div className="card p-0 overflow-hidden">
+                    <DataGrid className="card p-0 overflow-hidden">
                         <table className="table">
                             <thead>
                                 <tr>
@@ -552,7 +553,7 @@ export default function AnalyticsDashboard() {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
+                    </DataGrid>
                 </div>
             )}
 
@@ -589,7 +590,7 @@ export default function AnalyticsDashboard() {
             {stats.recent_orders.length > 0 && (
                 <div className="mb-8">
                     <h2 className="text-xl font-semibold mb-4 text-text-primary">Recent Orders</h2>
-                    <div className="card p-0 overflow-hidden">
+                    <DataGrid className="card p-0 overflow-hidden">
                         <table className="table">
                             <thead>
                                 <tr>
@@ -619,7 +620,7 @@ export default function AnalyticsDashboard() {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
+                    </DataGrid>
                 </div>
             )}
 

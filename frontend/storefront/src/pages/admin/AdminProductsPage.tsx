@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { adminApi } from '@/lib/api'
 import { storeApi } from '@/lib/api'
 import {
     Package, Search, X, Star, AlertTriangle, CheckCircle,
-    XCircle, ChevronLeft, ChevronRight, ExternalLink,
+    XCircle, ExternalLink,
 } from 'lucide-react'
+import DataGrid from '@/components/ui/DataGrid'
+import PaginationControls from '@/components/ui/PaginationControls'
+import RowActions, { RowActionLink } from '@/components/ui/RowActions'
 
 export default function AdminProductsPage() {
     const [page, setPage] = useState(1)
@@ -105,8 +107,8 @@ export default function AdminProductsPage() {
                             key={String(chip.val)}
                             onClick={() => { setInStock(inStock === chip.val ? undefined : chip.val); setPage(1) }}
                             className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${inStock === chip.val
-                                    ? 'bg-theme-primary text-white border-theme-primary'
-                                    : 'bg-bg-primary text-text-secondary border-border-color hover:border-theme-primary/50'
+                                ? 'bg-theme-primary text-white border-theme-primary'
+                                : 'bg-bg-primary text-text-secondary border-border-color hover:border-theme-primary/50'
                                 }`}
                         >
                             {chip.label}
@@ -115,8 +117,8 @@ export default function AdminProductsPage() {
                     <button
                         onClick={() => { setIsFeatured(isFeatured === true ? undefined : true); setPage(1) }}
                         className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${isFeatured === true
-                                ? 'bg-amber-500 text-white border-amber-500'
-                                : 'bg-bg-primary text-text-secondary border-border-color hover:border-amber-500/50'
+                            ? 'bg-amber-500 text-white border-amber-500'
+                            : 'bg-bg-primary text-text-secondary border-border-color hover:border-amber-500/50'
                             }`}
                     >
                         ⭐ Featured
@@ -144,118 +146,103 @@ export default function AdminProductsPage() {
                 </div>
             ) : (
                 <>
-                    <div className="card p-0 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-border-color bg-bg-tertiary text-text-secondary text-xs uppercase tracking-wider">
-                                        <th className="text-left pl-4 py-3 w-12"></th>
-                                        <th className="text-left px-3 py-3">Product</th>
-                                        <th className="text-left px-3 py-3">SKU</th>
-                                        <th className="text-right px-3 py-3">Price</th>
-                                        <th className="text-right px-3 py-3">MRP</th>
-                                        <th className="text-right px-3 py-3">Stock</th>
-                                        <th className="text-center px-3 py-3">Status</th>
-                                        <th className="text-center px-3 py-3">Featured</th>
-                                        <th className="text-center px-3 py-3">Rating</th>
-                                        <th className="py-3 pr-4"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border-color">
-                                    {products.map((p: any) => (
-                                        <tr key={p.id} className={`hover:bg-bg-tertiary/50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
-                                            <td className="pl-4 py-3">
-                                                {p.thumbnail ? (
-                                                    <img src={p.thumbnail} alt="" className="w-10 h-10 object-cover rounded-lg flex-shrink-0" />
-                                                ) : (
-                                                    <div className="w-10 h-10 bg-bg-tertiary rounded-lg flex items-center justify-center flex-shrink-0">
-                                                        <Package className="h-4 w-4 text-text-tertiary" />
-                                                    </div>
+                    <DataGrid className="card p-0 overflow-hidden">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-border-color bg-bg-tertiary text-text-secondary text-xs uppercase tracking-wider">
+                                    <th className="text-left pl-4 py-3 w-12"></th>
+                                    <th className="text-left px-3 py-3">Product</th>
+                                    <th className="text-left px-3 py-3">SKU</th>
+                                    <th className="text-right px-3 py-3">Price</th>
+                                    <th className="text-right px-3 py-3">MRP</th>
+                                    <th className="text-right px-3 py-3">Stock</th>
+                                    <th className="text-center px-3 py-3">Status</th>
+                                    <th className="text-center px-3 py-3">Featured</th>
+                                    <th className="text-center px-3 py-3">Rating</th>
+                                    <th className="py-3 pr-4"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border-color">
+                                {products.map((p: any) => (
+                                    <tr key={p.id} className={`hover:bg-bg-tertiary/50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
+                                        <td className="pl-4 py-3">
+                                            {p.thumbnail ? (
+                                                <img src={p.thumbnail} alt="" className="w-10 h-10 object-cover rounded-lg flex-shrink-0" />
+                                            ) : (
+                                                <div className="w-10 h-10 bg-bg-tertiary rounded-lg flex items-center justify-center flex-shrink-0">
+                                                    <Package className="h-4 w-4 text-text-tertiary" />
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-3 max-w-[200px]">
+                                            <p className="font-medium text-text-primary truncate">{p.name}</p>
+                                            {p.category_name && (
+                                                <p className="text-xs text-text-tertiary truncate">{p.category_name}</p>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-3 font-mono text-xs text-text-secondary">{p.sku || '—'}</td>
+                                        <td className="px-3 py-3 text-right font-semibold text-text-primary">
+                                            ₹{p.selling_price?.toLocaleString()}
+                                        </td>
+                                        <td className="px-3 py-3 text-right text-xs text-text-tertiary line-through">
+                                            {p.mrp ? `₹${p.mrp.toLocaleString()}` : '—'}
+                                        </td>
+                                        <td className="px-3 py-3 text-right">
+                                            <span className={`font-semibold ${p.quantity === 0 ? 'text-red-500' :
+                                                p.quantity <= (p.low_stock_threshold ?? 5) ? 'text-orange-500' :
+                                                    'text-text-primary'
+                                                }`}>
+                                                {p.quantity}
+                                                {p.quantity > 0 && p.quantity <= (p.low_stock_threshold ?? 5) && (
+                                                    <AlertTriangle className="inline h-3 w-3 ml-1 text-orange-500" />
                                                 )}
-                                            </td>
-                                            <td className="px-3 py-3 max-w-[200px]">
-                                                <p className="font-medium text-text-primary truncate">{p.name}</p>
-                                                {p.category_name && (
-                                                    <p className="text-xs text-text-tertiary truncate">{p.category_name}</p>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-3 font-mono text-xs text-text-secondary">{p.sku || '—'}</td>
-                                            <td className="px-3 py-3 text-right font-semibold text-text-primary">
-                                                ₹{p.selling_price?.toLocaleString()}
-                                            </td>
-                                            <td className="px-3 py-3 text-right text-xs text-text-tertiary line-through">
-                                                {p.mrp ? `₹${p.mrp.toLocaleString()}` : '—'}
-                                            </td>
-                                            <td className="px-3 py-3 text-right">
-                                                <span className={`font-semibold ${p.quantity === 0 ? 'text-red-500' :
-                                                        p.quantity <= (p.low_stock_threshold ?? 5) ? 'text-orange-500' :
-                                                            'text-text-primary'
-                                                    }`}>
-                                                    {p.quantity}
-                                                    {p.quantity > 0 && p.quantity <= (p.low_stock_threshold ?? 5) && (
-                                                        <AlertTriangle className="inline h-3 w-3 ml-1 text-orange-500" />
-                                                    )}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-3 text-center">
+                                            {p.is_active
+                                                ? <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
+                                                : <XCircle className="h-4 w-4 text-red-500 mx-auto" />
+                                            }
+                                        </td>
+                                        <td className="px-3 py-3 text-center">
+                                            {p.is_featured && <Star className="h-4 w-4 text-amber-400 fill-amber-400 mx-auto" />}
+                                        </td>
+                                        <td className="px-3 py-3 text-center text-xs text-text-secondary">
+                                            {p.average_rating > 0 ? (
+                                                <span className="flex items-center justify-center gap-0.5">
+                                                    <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
+                                                    {Number(p.average_rating).toFixed(1)}
                                                 </span>
-                                            </td>
-                                            <td className="px-3 py-3 text-center">
-                                                {p.is_active
-                                                    ? <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
-                                                    : <XCircle className="h-4 w-4 text-red-500 mx-auto" />
-                                                }
-                                            </td>
-                                            <td className="px-3 py-3 text-center">
-                                                {p.is_featured && <Star className="h-4 w-4 text-amber-400 fill-amber-400 mx-auto" />}
-                                            </td>
-                                            <td className="px-3 py-3 text-center text-xs text-text-secondary">
-                                                {p.average_rating > 0 ? (
-                                                    <span className="flex items-center justify-center gap-0.5">
-                                                        <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
-                                                        {Number(p.average_rating).toFixed(1)}
-                                                    </span>
-                                                ) : '—'}
-                                            </td>
-                                            <td className="pr-4 py-3">
-                                                <Link
-                                                    to={`/products/${p.id}`}
+                                            ) : '—'}
+                                        </td>
+                                        <td className="pr-4 py-3">
+                                            <RowActions>
+                                                <RowActionLink
+                                                    href={`/products/${p.id}`}
                                                     target="_blank"
-                                                    className="p-1.5 rounded-lg text-text-tertiary hover:text-theme-primary hover:bg-theme-primary/10 transition-colors inline-flex"
+                                                    rel="noreferrer"
                                                     title="View product"
                                                     aria-label="View product"
-                                                >
-                                                    <ExternalLink className="h-4 w-4" />
-                                                </Link>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                                                    tone="primary"
+                                                    iconOnly
+                                                    icon={<ExternalLink className="h-4 w-4" />}
+                                                />
+                                            </RowActions>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </DataGrid>
 
                     {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-center gap-3 mt-6">
-                            <button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                aria-label="Previous page"
-                                className="btn btn-secondary btn-icon"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </button>
-                            <span className="text-sm text-text-secondary">
-                                Page <span className="font-semibold text-text-primary">{page}</span> of {totalPages}
-                            </span>
-                            <button
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                disabled={page === totalPages}
-                                aria-label="Next page"
-                                className="btn btn-secondary btn-icon"
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </button>
-                        </div>
-                    )}
+                    <PaginationControls
+                        className="mt-6"
+                        page={page}
+                        totalPages={totalPages}
+                        onPrev={() => setPage(p => Math.max(1, p - 1))}
+                        onNext={() => setPage(p => Math.min(totalPages, p + 1))}
+                    />
                 </>
             )}
         </div>

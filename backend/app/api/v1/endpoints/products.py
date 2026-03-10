@@ -73,10 +73,12 @@ async def list_products(
         if _cached is not None:
             return APIResponse(success=True, data=_cached)
 
-    # Build base query
+    # Build base query filters
     _active_filters = [Product.store_id == store_id]
     if not include_inactive:
         _active_filters.append(Product.is_active == True)
+
+    product_filters = list(_active_filters)
 
     # Build base query with left join for reviews
     query = db.query(
@@ -89,37 +91,51 @@ async def list_products(
     
     # Apply filters
     if category_id:
-        query = query.filter(Product.category_id == category_id)
+        product_filters.append(Product.category_id == category_id)
     
     if search:
         # Enhanced search across multiple fields
         search_term = f"%{search}%"
-        query = query.filter(
+        product_filters.append(
             or_(
                 Product.name.ilike(search_term),
                 Product.description.ilike(search_term),
                 Product.sku.ilike(search_term),
-                Product.barcode.ilike(search_term)
+                Product.barcode.ilike(search_term),
             )
         )
     
     if in_stock is not None:
-        query = query.filter(Product.is_in_stock == in_stock)
+        product_filters.append(Product.is_in_stock == in_stock)
     
     if is_featured is not None:
-        query = query.filter(Product.is_featured == is_featured)
+        product_filters.append(Product.is_featured == is_featured)
     
     if min_price is not None:
-        query = query.filter(Product.selling_price >= min_price)
+        product_filters.append(Product.selling_price >= min_price)
     
     if max_price is not None:
-        query = query.filter(Product.selling_price <= max_price)
+        product_filters.append(Product.selling_price <= max_price)
+
+    query = query.filter(and_(*product_filters))
     
     if min_rating is not None:
         query = query.having(func.avg(ProductReview.rating) >= min_rating)
     
-    # Get total count before sorting
-    total = query.count()
+    # Get total count using an optimized path to avoid expensive grouped count.
+    if min_rating is not None:
+        rating_filtered_products = db.query(ProductReview.product_id).join(
+            Product,
+            Product.id == ProductReview.product_id,
+        ).filter(
+            and_(*product_filters)
+        ).group_by(ProductReview.product_id).having(
+            func.avg(ProductReview.rating) >= min_rating
+        ).subquery()
+
+        total = db.query(func.count()).select_from(rating_filtered_products).scalar() or 0
+    else:
+        total = db.query(func.count(Product.id)).filter(and_(*product_filters)).scalar() or 0
     
     # Apply sorting
     if sort_by == "rating":

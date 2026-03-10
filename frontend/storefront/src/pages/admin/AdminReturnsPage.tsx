@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, CheckCircle, XCircle, Truck, Package, AlertCircle, ChevronDown } from 'lucide-react'
+import { CheckCircle, XCircle, Truck, Package, AlertCircle, ChevronDown } from 'lucide-react'
 import { api } from '@/lib/api'
 import { toast } from '@/components/ui/Toaster'
+import PageHeader from '@/components/ui/PageHeader'
+import EmptyState from '@/components/ui/EmptyState'
+import StatusBadge from '@/components/ui/StatusBadge'
 
 interface ReturnItem {
     product_name: string
@@ -29,17 +32,6 @@ interface ReturnRequest {
 
 const STATUS_OPTIONS = ['all', 'pending', 'approved', 'rejected', 'picked_up', 'refunded'] as const
 type AdminAction = 'approve' | 'reject' | 'schedule_pickup' | 'mark_picked_up' | 'refund'
-
-const statusBadge = (s: string) => {
-    const map: Record<string, string> = {
-        pending: 'bg-yellow-100 text-yellow-700',
-        approved: 'bg-blue-100 text-blue-700',
-        rejected: 'bg-red-100 text-red-700',
-        picked_up: 'bg-purple-100 text-purple-700',
-        refunded: 'bg-green-100 text-green-700',
-    }
-    return `px-2 py-0.5 rounded-full text-xs font-medium capitalize ${map[s] ?? 'bg-gray-100 text-gray-600'}`
-}
 
 export default function AdminReturnsPage() {
     const qc = useQueryClient()
@@ -96,36 +88,35 @@ export default function AdminReturnsPage() {
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <RefreshCw className="h-6 w-6 text-theme-primary" />
-                    <h1 className="text-2xl font-bold text-text-primary">Return Requests</h1>
-                    <span className="text-sm text-text-tertiary">({returns.length} shown)</span>
-                </div>
-                {/* Status filter */}
-                <div className="flex gap-2 flex-wrap">
-                    {STATUS_OPTIONS.map((s) => (
-                        <button
-                            key={s}
-                            onClick={() => setStatusFilter(s)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors capitalize
+            <PageHeader
+                title="Return Requests"
+                subtitle={`${returns.length} shown`}
+                actions={
+                    <div className="flex gap-2 flex-wrap">
+                        {STATUS_OPTIONS.map((s) => (
+                            <button
+                                key={s}
+                                onClick={() => setStatusFilter(s)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors capitalize
                                 ${statusFilter === s ? 'bg-theme-primary text-white border-theme-primary' : 'bg-bg-primary text-text-secondary border-border-color hover:border-theme-primary/40'}`}
-                        >
-                            {s === 'all' ? 'All' : s.replace('_', ' ')}
-                        </button>
-                    ))}
-                </div>
-            </div>
+                            >
+                                {s === 'all' ? 'All' : s.replace('_', ' ')}
+                            </button>
+                        ))}
+                    </div>
+                }
+            />
 
             {isLoading ? (
                 <div className="flex items-center justify-center h-40">
                     <div className="h-8 w-8 border-2 border-theme-primary border-t-transparent rounded-full animate-spin" />
                 </div>
             ) : returns.length === 0 ? (
-                <div className="text-center py-16 text-text-tertiary">
-                    <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p>No return requests found for this filter.</p>
-                </div>
+                <EmptyState
+                    icon={<Package className="h-12 w-12 opacity-30" />}
+                    title="No return requests"
+                    description="No return requests found for this filter."
+                />
             ) : (
                 <div className="space-y-3">
                     {returns.map((r) => (
@@ -153,7 +144,7 @@ export default function AdminReturnsPage() {
                                         <p className="font-semibold text-green-600">₹{r.total_refund_amount?.toLocaleString()}</p>
                                     </div>
                                     <div className="flex items-center">
-                                        <span className={statusBadge(r.status)}>{r.status.replace('_', ' ')}</span>
+                                        <StatusBadge status={r.status} className="capitalize" />
                                     </div>
                                 </div>
                                 <ChevronDown className={`h-4 w-4 text-text-tertiary flex-shrink-0 transition-transform ${expanded === r.id ? 'rotate-180' : ''}`} />

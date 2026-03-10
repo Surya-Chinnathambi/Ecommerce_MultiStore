@@ -4,7 +4,12 @@ import { useAuthStore } from '../store/authStore'
 import { useCartStore } from '../store/cartStore'
 import { api } from '../lib/api'
 import { toast } from '../components/ui/Toaster'
-import { Search, X } from 'lucide-react'
+import StatusBadge from '@/components/ui/StatusBadge'
+import EmptyState from '@/components/ui/EmptyState'
+import Button from '@/components/ui/Button'
+import PageHeader from '@/components/ui/PageHeader'
+import FilterBar from '@/components/ui/FilterBar'
+import PaginationControls from '@/components/ui/PaginationControls'
 
 interface OrderItem {
     id: string
@@ -36,24 +41,6 @@ interface Order {
         state: string
         postal_code: string
     }
-}
-
-const STATUS_COLORS: Record<string, string> = {
-    pending: 'bg-yellow-500/10 text-yellow-500 border-border-color',
-    confirmed: 'bg-theme-primary/10 text-theme-primary border-border-color',
-    processing: 'bg-theme-accent/10 text-theme-accent border-border-color',
-    shipped: 'bg-bg-tertiary text-text-primary border-border-color',
-    delivered: 'bg-green-500/10 text-green-500 border-border-color',
-    cancelled: 'bg-red-500/10 text-red-500 border-border-color'
-}
-
-const STATUS_ICONS: Record<string, string> = {
-    pending: '⏱️',
-    confirmed: '✅',
-    processing: '📦',
-    shipped: '🚚',
-    delivered: '🎉',
-    cancelled: '❌'
 }
 
 export default function MyOrdersPage() {
@@ -181,32 +168,17 @@ export default function MyOrdersPage() {
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
                 <div className="mb-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                        <div>
-                            <h1 className="text-3xl font-bold text-text-primary">My Orders</h1>
-                            <p className="mt-1 text-text-secondary">Track and manage your orders</p>
-                        </div>
-                        {/* Search */}
-                        <div className="relative w-full sm:w-72">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary pointer-events-none" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                placeholder="Search orders or products…"
-                                className="input pl-9 pr-8 w-full text-sm"
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
-                                    aria-label="Clear search"
-                                >
-                                    <X className="h-4 w-4" />
-                                </button>
-                            )}
-                        </div>
-                    </div>
+                    <PageHeader
+                        title="My Orders"
+                        subtitle="Track and manage your orders"
+                    />
+                    <FilterBar
+                        searchValue={searchQuery}
+                        onSearchChange={setSearchQuery}
+                        searchPlaceholder="Search orders or products…"
+                        className="mb-4"
+                        searchWidthClassName="w-full"
+                    />
                     {/* Status filter chips */}
                     <div className="flex flex-wrap gap-2">
                         {STATUS_CHIPS.map(chip => (
@@ -214,8 +186,8 @@ export default function MyOrdersPage() {
                                 key={chip.key}
                                 onClick={() => setStatusFilter(chip.key)}
                                 className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${statusFilter === chip.key
-                                        ? 'bg-theme-primary text-white border-theme-primary'
-                                        : 'bg-bg-primary text-text-secondary border-border-color hover:border-theme-primary/50'
+                                    ? 'bg-theme-primary text-white border-theme-primary'
+                                    : 'bg-bg-primary text-text-secondary border-border-color hover:border-theme-primary/50'
                                     }`}
                             >
                                 {chip.label}
@@ -230,32 +202,27 @@ export default function MyOrdersPage() {
                         <p className="mt-4 text-text-secondary">Loading your orders...</p>
                     </div>
                 ) : filteredOrders.length === 0 ? (
-                    <div className="bg-bg-primary rounded-lg shadow p-12 text-center border border-border-color">
-                        <div className="text-6xl mb-4">📦</div>
-                        <h2 className="text-2xl font-semibold text-text-primary mb-2">
-                            {searchQuery || statusFilter !== 'all' ? 'No matching orders' : 'No orders yet'}
-                        </h2>
-                        <p className="text-text-secondary mb-6">
-                            {searchQuery || statusFilter !== 'all'
+                    <div className="bg-bg-primary rounded-lg shadow border border-border-color">
+                        <EmptyState
+                            icon={<span className="text-6xl" aria-hidden="true">📦</span>}
+                            title={searchQuery || statusFilter !== 'all' ? 'No matching orders' : 'No orders yet'}
+                            description={searchQuery || statusFilter !== 'all'
                                 ? 'Try a different search term or filter'
-                                : 'Start shopping to see your orders here'
-                            }
-                        </p>
-                        {searchQuery || statusFilter !== 'all' ? (
-                            <button
-                                onClick={() => { setSearchQuery(''); setStatusFilter('all') }}
-                                className="btn btn-outline"
-                            >
-                                Clear Filters
-                            </button>
-                        ) : (
-                            <button
-                                onClick={() => navigate('/products')}
-                                className="bg-theme-primary text-white px-6 py-3 rounded-lg hover:bg-theme-primary-hover transition-colors"
-                            >
-                                Browse Products
-                            </button>
-                        )}
+                                : 'Start shopping to see your orders here'}
+                            action={searchQuery || statusFilter !== 'all' ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => { setSearchQuery(''); setStatusFilter('all') }}
+                                >
+                                    Clear Filters
+                                </Button>
+                            ) : (
+                                <Button type="button" onClick={() => navigate('/products')}>
+                                    Browse Products
+                                </Button>
+                            )}
+                        />
                     </div>
                 ) : (
                     <>
@@ -289,22 +256,20 @@ export default function MyOrdersPage() {
                                     <div className="px-6 py-4 bg-bg-tertiary/30">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center space-x-3">
-                                                <span className="text-3xl">{STATUS_ICONS[order.order_status]}</span>
                                                 <div>
-                                                    <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${STATUS_COLORS[order.order_status]}`}>
-                                                        {order.order_status.toUpperCase()}
-                                                    </div>
+                                                    <StatusBadge status={order.order_status.toUpperCase()} className="text-sm" />
                                                     <p className="text-sm text-text-secondary mt-1">
                                                         {getStatusMessage(order.order_status)}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <button
+                                            <Button
+                                                type="button"
                                                 onClick={() => setSelectedOrder(order)}
-                                                className="bg-theme-primary text-white px-4 py-2 rounded-lg hover:bg-theme-primary-hover transition-colors text-sm font-medium"
+                                                size="sm"
                                             >
                                                 View Details
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
 
@@ -383,27 +348,13 @@ export default function MyOrdersPage() {
                         </div>
 
                         {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="mt-8 flex items-center justify-center space-x-4">
-                                <button
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                                    disabled={page === 1}
-                                    className="px-4 py-2 border border-border-color rounded-lg text-sm font-medium text-text-primary hover:bg-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    ← Previous
-                                </button>
-                                <span className="text-sm text-text-primary">
-                                    Page {page} of {totalPages}
-                                </span>
-                                <button
-                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                    disabled={page === totalPages}
-                                    className="px-4 py-2 border border-border-color rounded-lg text-sm font-medium text-text-primary hover:bg-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next →
-                                </button>
-                            </div>
-                        )}
+                        <PaginationControls
+                            className="mt-8 flex items-center justify-center gap-4"
+                            page={page}
+                            totalPages={totalPages}
+                            onPrev={() => setPage(p => Math.max(1, p - 1))}
+                            onNext={() => setPage(p => Math.min(totalPages, p + 1))}
+                        />
                     </>
                 )}
             </div>
@@ -438,11 +389,10 @@ export default function MyOrdersPage() {
                             {/* Status Timeline */}
                             <div>
                                 <h3 className="text-lg font-semibold text-text-primary mb-4">Order Status</h3>
-                                <div className={`p-4 rounded-lg border-2 ${STATUS_COLORS[selectedOrder.order_status]}`}>
+                                <div className="p-4 rounded-lg border-2 border-border-color bg-bg-tertiary/40">
                                     <div className="flex items-center space-x-3 mb-2">
-                                        <span className="text-3xl">{STATUS_ICONS[selectedOrder.order_status]}</span>
                                         <div>
-                                            <div className="font-bold text-lg">{selectedOrder.order_status.toUpperCase()}</div>
+                                            <StatusBadge status={selectedOrder.order_status.toUpperCase()} className="text-sm" />
                                             <div className="text-sm">{getStatusMessage(selectedOrder.order_status)}</div>
                                         </div>
                                     </div>

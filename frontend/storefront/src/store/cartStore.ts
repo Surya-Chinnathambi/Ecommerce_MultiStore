@@ -80,7 +80,7 @@ export const useCartStore = create<CartStore>()(
         {
             name: 'cart-storage',
             // Migration: Convert old array-based storage to object-based
-            migrate: (persistedState: any, version: number) => {
+            migrate: (persistedState: any) => {
                 if (Array.isArray(persistedState.items)) {
                     const normalized: Record<string, CartItem> = {}
                     persistedState.items.forEach((item: CartItem) => {

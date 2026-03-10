@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Tag, Plus, Edit2, Trash2, X, Check, Calendar, DollarSign, Users, Percent } from 'lucide-react'
+import { Tag, Plus, Edit2, Trash2, Check, Calendar, DollarSign, Users, Percent } from 'lucide-react'
 import { couponsApi } from '@/lib/api'
 import { toast } from '@/components/ui/Toaster'
+import DataGrid from '@/components/ui/DataGrid'
+import EmptyState from '@/components/ui/EmptyState'
+import RowActions, { RowActionButton } from '@/components/ui/RowActions'
+import Modal, { ModalBody, ModalHeader } from '@/components/ui/Modal'
 
 interface Coupon {
     id: string
@@ -143,17 +147,13 @@ export default function AdminCouponsPage() {
 
             {/* Form modal */}
             {showForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-bg-primary border border-border-color rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between p-5 border-b border-border-color">
-                            <h2 className="text-lg font-semibold text-text-primary">
-                                {editId ? 'Edit Coupon' : 'Create New Coupon'}
-                            </h2>
-                            <button title="Close" aria-label="Close" onClick={() => setShowForm(false)} className="text-text-tertiary hover:text-text-primary">
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                <Modal open={showForm} onClose={() => setShowForm(false)} maxWidthClassName="max-w-lg">
+                    <ModalHeader
+                        title={editId ? 'Edit Coupon' : 'Create New Coupon'}
+                        onClose={() => setShowForm(false)}
+                    />
+                    <ModalBody className="p-5">
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <label className="block text-xs font-medium text-text-secondary mb-1">Coupon Code *</label>
@@ -236,102 +236,104 @@ export default function AdminCouponsPage() {
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </ModalBody>
+                </Modal>
             )}
 
             {/* Table */}
-            {isLoading ? (
-                <div className="flex items-center justify-center h-40">
-                    <div className="h-8 w-8 border-2 border-theme-primary border-t-transparent rounded-full animate-spin" />
-                </div>
-            ) : coupons.length === 0 ? (
-                <div className="text-center py-16 text-text-tertiary">
-                    <Tag className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p>No coupons yet. Create your first coupon!</p>
-                </div>
-            ) : (
-                <div className="bg-bg-primary border border-border-color rounded-xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-border-color bg-bg-secondary/50">
-                                    <th className="text-left px-4 py-3 text-text-secondary font-medium">Code</th>
-                                    <th className="text-left px-4 py-3 text-text-secondary font-medium">Type</th>
-                                    <th className="text-left px-4 py-3 text-text-secondary font-medium">Value</th>
-                                    <th className="text-left px-4 py-3 text-text-secondary font-medium">Min Order</th>
-                                    <th className="text-left px-4 py-3 text-text-secondary font-medium">Usage</th>
-                                    <th className="text-left px-4 py-3 text-text-secondary font-medium">Validity</th>
-                                    <th className="text-left px-4 py-3 text-text-secondary font-medium">Status</th>
-                                    <th className="text-right px-4 py-3 text-text-secondary font-medium">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border-color">
-                                {coupons.map((c) => (
-                                    <tr key={c.id} className="hover:bg-bg-tertiary/40 transition-colors">
-                                        <td className="px-4 py-3">
-                                            <span className="font-mono font-semibold text-theme-primary">{c.code}</span>
-                                            {c.description && <p className="text-xs text-text-tertiary mt-0.5 truncate max-w-32">{c.description}</p>}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={discountTypeBadge(c.discount_type)}>{c.discount_type.replace('_', ' ')}</span>
-                                        </td>
-                                        <td className="px-4 py-3 font-medium">
-                                            {c.discount_type === 'PERCENT' ? (
-                                                <span className="flex items-center gap-1"><Percent className="h-3 w-3" />{c.discount_value}%</span>
-                                            ) : c.discount_type === 'FREE_SHIPPING' ? (
-                                                <span className="text-purple-600">Free Ship</span>
-                                            ) : (
-                                                <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" />₹{c.discount_value}</span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-text-secondary">
-                                            {c.min_order_amount > 0 ? `₹${c.min_order_amount}` : '—'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-1 text-text-secondary">
-                                                <Users className="h-3.5 w-3.5" />
-                                                {c.used_count}/{c.usage_limit ?? '∞'}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-text-tertiary text-xs">
-                                            {c.valid_from || c.valid_until ? (
-                                                <div className="flex items-center gap-1">
-                                                    <Calendar className="h-3 w-3" />
-                                                    {c.valid_from ? new Date(c.valid_from).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '∞'}
-                                                    {' → '}
-                                                    {c.valid_until ? new Date(c.valid_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '∞'}
-                                                </div>
-                                            ) : '—'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                {c.is_active ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg hover:bg-bg-tertiary text-text-secondary hover:text-theme-primary" title="Edit">
-                                                    <Edit2 className="h-4 w-4" />
-                                                </button>
-                                                {c.is_active && (
-                                                    <button
-                                                        onClick={() => { if (confirm('Deactivate this coupon?')) deactivateMutation.mutate(c.id) }}
-                                                        className="p-1.5 rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-600"
-                                                        title="Deactivate"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+            <DataGrid
+                className="bg-bg-primary border border-border-color rounded-xl overflow-hidden"
+                loading={isLoading}
+                isEmpty={coupons.length === 0}
+                loadingState={
+                    <div className="flex items-center justify-center h-40">
+                        <div className="h-8 w-8 border-2 border-theme-primary border-t-transparent rounded-full animate-spin" />
                     </div>
-                </div>
-            )}
+                }
+                emptyState={
+                    <EmptyState
+                        icon={<Tag className="h-12 w-12 opacity-30" />}
+                        title="No coupons yet"
+                        description="Create your first coupon to run promotions."
+                    />
+                }
+            >
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="border-b border-border-color bg-bg-secondary/50">
+                            <th className="text-left px-4 py-3 text-text-secondary font-medium">Code</th>
+                            <th className="text-left px-4 py-3 text-text-secondary font-medium">Type</th>
+                            <th className="text-left px-4 py-3 text-text-secondary font-medium">Value</th>
+                            <th className="text-left px-4 py-3 text-text-secondary font-medium">Min Order</th>
+                            <th className="text-left px-4 py-3 text-text-secondary font-medium">Usage</th>
+                            <th className="text-left px-4 py-3 text-text-secondary font-medium">Validity</th>
+                            <th className="text-left px-4 py-3 text-text-secondary font-medium">Status</th>
+                            <th className="text-right px-4 py-3 text-text-secondary font-medium">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-color">
+                        {coupons.map((c) => (
+                            <tr key={c.id} className="hover:bg-bg-tertiary/40 transition-colors">
+                                <td className="px-4 py-3">
+                                    <span className="font-mono font-semibold text-theme-primary">{c.code}</span>
+                                    {c.description && <p className="text-xs text-text-tertiary mt-0.5 truncate max-w-32">{c.description}</p>}
+                                </td>
+                                <td className="px-4 py-3">
+                                    <span className={discountTypeBadge(c.discount_type)}>{c.discount_type.replace('_', ' ')}</span>
+                                </td>
+                                <td className="px-4 py-3 font-medium">
+                                    {c.discount_type === 'PERCENT' ? (
+                                        <span className="flex items-center gap-1"><Percent className="h-3 w-3" />{c.discount_value}%</span>
+                                    ) : c.discount_type === 'FREE_SHIPPING' ? (
+                                        <span className="text-purple-600">Free Ship</span>
+                                    ) : (
+                                        <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" />₹{c.discount_value}</span>
+                                    )}
+                                </td>
+                                <td className="px-4 py-3 text-text-secondary">
+                                    {c.min_order_amount > 0 ? `₹${c.min_order_amount}` : '—'}
+                                </td>
+                                <td className="px-4 py-3">
+                                    <div className="flex items-center gap-1 text-text-secondary">
+                                        <Users className="h-3.5 w-3.5" />
+                                        {c.used_count}/{c.usage_limit ?? '∞'}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3 text-text-tertiary text-xs">
+                                    {c.valid_from || c.valid_until ? (
+                                        <div className="flex items-center gap-1">
+                                            <Calendar className="h-3 w-3" />
+                                            {c.valid_from ? new Date(c.valid_from).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '∞'}
+                                            {' → '}
+                                            {c.valid_until ? new Date(c.valid_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '∞'}
+                                        </div>
+                                    ) : '—'}
+                                </td>
+                                <td className="px-4 py-3">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                        {c.is_active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                    <RowActions>
+                                        <RowActionButton onClick={() => openEdit(c)} title="Edit" aria-label="Edit coupon" iconOnly icon={<Edit2 className="h-4 w-4" />} />
+                                        {c.is_active && (
+                                            <RowActionButton
+                                                onClick={() => { if (confirm('Deactivate this coupon?')) deactivateMutation.mutate(c.id) }}
+                                                tone="danger"
+                                                title="Deactivate"
+                                                aria-label="Deactivate coupon"
+                                                iconOnly
+                                                icon={<Trash2 className="h-4 w-4" />}
+                                            />
+                                        )}
+                                    </RowActions>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </DataGrid>
         </div>
     )
 }

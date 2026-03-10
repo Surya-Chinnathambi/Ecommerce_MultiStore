@@ -3,9 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { sellerApi } from '@/lib/api'
 import { Link } from 'react-router-dom'
 import {
-    ShoppingBag, Search, X, ChevronLeft, ChevronRight,
-    IndianRupee, Package, Clock, Truck, CheckCircle2, XCircle
+    ShoppingBag, Search, X,
+    IndianRupee, Package
 } from 'lucide-react'
+import PaginationControls from '@/components/ui/PaginationControls'
+import StatusBadge from '@/components/ui/StatusBadge'
 
 interface SellerOrder {
     id: string
@@ -25,26 +27,6 @@ interface SellerOrder {
         unit_price: number
         total: number
     }[]
-}
-
-const STATUS_COLORS: Record<string, string> = {
-    PENDING:    'bg-yellow-100 text-yellow-700',
-    CONFIRMED:  'bg-blue-100 text-blue-700',
-    PROCESSING: 'bg-indigo-100 text-indigo-700',
-    SHIPPED:    'bg-cyan-100 text-cyan-700',
-    DELIVERED:  'bg-green-100 text-green-700',
-    CANCELLED:  'bg-red-100 text-red-700',
-    RETURNED:   'bg-orange-100 text-orange-700',
-}
-
-function statusIcon(s: string) {
-    switch (s) {
-        case 'DELIVERED':  return <CheckCircle2 className="h-3.5 w-3.5" />
-        case 'SHIPPED':    return <Truck className="h-3.5 w-3.5" />
-        case 'CANCELLED':  return <XCircle className="h-3.5 w-3.5" />
-        case 'PENDING':    return <Clock className="h-3.5 w-3.5" />
-        default:           return <Package className="h-3.5 w-3.5" />
-    }
 }
 
 const STATUS_CHIPS = ['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED']
@@ -154,10 +136,7 @@ export default function SellerOrdersPage() {
                                     <span className="font-mono text-sm font-bold text-text-primary">
                                         {order.order_number}
                                     </span>
-                                    <span className={`badge flex items-center gap-1 text-xs ${STATUS_COLORS[order.order_status] ?? 'bg-bg-tertiary text-text-secondary'}`}>
-                                        {statusIcon(order.order_status)}
-                                        {order.order_status}
-                                    </span>
+                                    <StatusBadge status={order.order_status} className="text-xs" />
                                     <span className="text-sm text-text-secondary">{order.customer_name}</span>
                                     {(order.delivery_city || order.delivery_state) && (
                                         <span className="text-xs text-text-tertiary">
@@ -214,31 +193,13 @@ export default function SellerOrdersPage() {
             )}
 
             {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-4 mt-6">
-                    <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="btn btn-outline btn-sm btn-icon"
-                        aria-label="Previous page"
-                        title="Previous"
-                    >
-                        <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <span className="text-sm text-text-secondary">
-                        Page {page} of {totalPages} · {total} orders
-                    </span>
-                    <button
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
-                        className="btn btn-outline btn-sm btn-icon"
-                        aria-label="Next page"
-                        title="Next"
-                    >
-                        <ChevronRight className="h-4 w-4" />
-                    </button>
-                </div>
-            )}
+            <PaginationControls
+                className="mt-6"
+                page={page}
+                totalPages={totalPages}
+                onPrev={() => setPage(p => Math.max(1, p - 1))}
+                onNext={() => setPage(p => Math.min(totalPages, p + 1))}
+            />
         </div>
     )
 }

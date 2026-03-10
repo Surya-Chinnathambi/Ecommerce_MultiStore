@@ -110,6 +110,23 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # For storefront, use IP address
         return request.client.host if request.client else "unknown"
     
+    @staticmethod
+    def _normalize_endpoint(path: str) -> str:
+        """Collapse dynamic IDs to keep Redis key cardinality bounded."""
+        normalized_parts = []
+        for part in path.strip("/").split("/"):
+            if not part:
+                continue
+            # Normalize UUID-like or numeric segments.
+            if len(part) >= 16 and "-" in part:
+                normalized_parts.append(":id")
+                continue
+            if part.isdigit():
+                normalized_parts.append(":id")
+                continue
+            normalized_parts.append(part)
+        return "/" + "/".join(normalized_parts)
+
     async def check_rate_limit(
         self,
         identifier: str,
@@ -122,7 +139,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns: (allowed, remaining, reset_time)
         """
         current_minute = int(time.time() / window)
-        cache_key = f"ratelimit:{identifier}:{endpoint}:{current_minute}"
+        normalized_endpoint = self._normalize_endpoint(endpoint)
+        cache_key = f"ratelimit:{identifier}:{normalized_endpoint}:{current_minute}"
         
         # Increment counter
         count = await redis_client.increment(cache_key, ttl=window)

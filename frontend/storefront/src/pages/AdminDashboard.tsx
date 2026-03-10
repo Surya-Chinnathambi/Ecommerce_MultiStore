@@ -2,14 +2,23 @@ import { useQuery } from '@tanstack/react-query'
 import { adminApi } from '@/lib/api'
 import { Package, ShoppingBag, Users, RefreshCw, AlertCircle, ArrowRight, Activity, TrendingUp, Cpu } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { clsx } from 'clsx'
 import { useEffect, useState } from 'react'
+import {
+    MOTION_DURATION,
+    MOTION_EASE,
+    cardGridVariants,
+    cardItemVariants,
+    motionTransition,
+    pageRevealVariants,
+} from '@/lib/motion'
 
 const MotionLink = motion(Link)
 
 // --- Gamified Sync Node Visualizer Component ---
 const SyncVisualizer = () => {
+    const shouldReduceMotion = useReducedMotion()
     const [progress, setProgress] = useState(0)
 
     useEffect(() => {
@@ -22,16 +31,16 @@ const SyncVisualizer = () => {
     return (
         <div className="relative h-[250px] w-full rounded-3xl bg-gradient-to-br from-bg-secondary via-theme-primary/5 to-theme-accent/5 flex items-center justify-center overflow-hidden border border-border-color shadow-inner">
             {/* Background animated rings */}
-            <motion.div 
-                animate={{ rotate: 360, scale: [1, 1.1, 1] }} 
-                transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+            <motion.div
+                animate={{ rotate: 360, scale: [1, 1.1, 1] }}
+                transition={motionTransition(!!shouldReduceMotion, { duration: 15, repeat: Infinity, ease: 'linear' })}
                 className="absolute w-[200%] h-[200%] rounded-full border border-theme-primary/10 opacity-30 border-dashed"
             />
-            
+
             <div className="flex items-center gap-8 relative z-10 w-full max-w-sm justify-between">
                 {/* Local Store Node */}
-                <motion.div 
-                    whileHover={{ scale: 1.1, rotate: 5 }}
+                <motion.div
+                    whileHover={shouldReduceMotion ? undefined : { scale: 1.1, rotate: 5 }}
                     className="flex flex-col items-center gap-2"
                 >
                     <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center shadow-[0_0_30px_rgba(139,92,246,0.2)] border border-theme-primary/30 backdrop-blur-md">
@@ -43,15 +52,15 @@ const SyncVisualizer = () => {
                 {/* Progress Node */}
                 <div className="flex-1 relative mx-4">
                     <div className="h-2 rounded-full bg-bg-tertiary overflow-hidden flex items-center shadow-inner relative">
-                        <motion.div 
+                        <motion.div
                             className="h-full bg-gradient-to-r from-theme-primary to-theme-accent drop-shadow-[0_0_10px_rgba(139,92,246,0.8)]"
                             style={{ width: `${progress}%` }}
                         />
                         {/* Gamified packet animation */}
-                        <motion.div 
-                            initial={{ x: "-100%" }}
-                            animate={{ x: "400%" }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                        <motion.div
+                            initial={shouldReduceMotion ? false : { x: '-100%' }}
+                            animate={{ x: shouldReduceMotion ? '0%' : '400%' }}
+                            transition={motionTransition(!!shouldReduceMotion, { duration: 1.5, repeat: Infinity, ease: 'linear' })}
                             className="absolute h-4 w-4 rounded-full bg-white shadow-[0_0_15px_#fff] top-1/2 -translate-y-1/2"
                         />
                     </div>
@@ -67,8 +76,8 @@ const SyncVisualizer = () => {
                 </div>
 
                 {/* Cloud Node */}
-                <motion.div 
-                    whileHover={{ scale: 1.1, rotate: -5 }}
+                <motion.div
+                    whileHover={shouldReduceMotion ? undefined : { scale: 1.1, rotate: -5 }}
                     className="flex flex-col items-center gap-2"
                 >
                     <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-theme-accent/20 to-pink-500/20 flex items-center justify-center shadow-[0_0_30px_rgba(236,72,153,0.2)] border border-theme-accent/30 backdrop-blur-md">
@@ -77,7 +86,7 @@ const SyncVisualizer = () => {
                     <span className="text-xs font-bold text-text-secondary">Cloud DB</span>
                 </motion.div>
             </div>
-            
+
             {/* Gamification Level Badge */}
             <div className="absolute top-4 left-4 flex items-center gap-2 bg-bg-primary/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border-color shadow-sm">
                 <span className="text-[10px] font-extrabold text-theme-primary uppercase tracking-wider">Level 12</span>
@@ -90,6 +99,7 @@ const SyncVisualizer = () => {
 }
 
 export default function AdminDashboard() {
+    const shouldReduceMotion = useReducedMotion()
     const { data: stats, isLoading } = useQuery({
         queryKey: ['admin-stats'],
         queryFn: () => adminApi.getDashboardStats().then(res => res.data.data),
@@ -103,7 +113,12 @@ export default function AdminDashboard() {
     ]
 
     return (
-        <div className="animate-fade-in p-6 max-w-7xl mx-auto space-y-8">
+        <motion.div
+            className="animate-fade-in p-6 max-w-7xl mx-auto space-y-8"
+            variants={pageRevealVariants}
+            initial={shouldReduceMotion ? false : 'hidden'}
+            animate="visible"
+        >
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">Admin Headquarters</h1>
@@ -121,44 +136,42 @@ export default function AdminDashboard() {
             </div>
 
             {/* Top Metrics - 3D Hover Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <AnimatePresence>
-                    {metricCards.map((card, i) => (
-                        <motion.div
-                            key={card.title}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.1, type: "spring" }}
-                            whileHover={{ y: -8, scale: 1.02 }}
-                            className={clsx(
-                                "relative overflow-hidden p-6 rounded-[2rem] border border-border-color bg-bg-primary shadow-sm hover:shadow-xl transition-all duration-300",
-                                card.border
-                            )}
-                        >
-                            <div className={clsx("absolute inset-0 bg-gradient-to-br opacity-50", card.bg)} />
-                            <div className="relative z-10 flex items-start justify-between">
-                                <div>
-                                    <p className="text-text-tertiary text-sm font-semibold mb-2">{card.title}</p>
-                                    {isLoading ? (
-                                        <div className="skeleton h-8 w-24 mb-1" />
-                                    ) : (
-                                        <h3 className="text-3xl font-black text-text-primary tracking-tight">{card.value}</h3>
-                                    )}
-                                </div>
-                                <div className={clsx("p-3 rounded-2xl bg-bg-primary shadow-sm border border-border-color", card.color)}>
-                                    <card.icon className="h-6 w-6" />
-                                </div>
+            <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" variants={cardGridVariants} initial={shouldReduceMotion ? false : 'hidden'} animate="visible">
+                {metricCards.map((card) => (
+                    <motion.div
+                        key={card.title}
+                        variants={cardItemVariants}
+                        whileHover={shouldReduceMotion ? undefined : { y: -8, scale: 1.02 }}
+                        transition={motionTransition(!!shouldReduceMotion, { duration: MOTION_DURATION.base, ease: MOTION_EASE })}
+                        className={clsx(
+                            "relative overflow-hidden p-6 rounded-[2rem] border border-border-color bg-bg-primary shadow-sm hover:shadow-xl transition-all duration-300",
+                            card.border
+                        )}
+                    >
+                        <div className={clsx("absolute inset-0 bg-gradient-to-br opacity-50", card.bg)} />
+                        <div className="relative z-10 flex items-start justify-between">
+                            <div>
+                                <p className="text-text-tertiary text-sm font-semibold mb-2">{card.title}</p>
+                                {isLoading ? (
+                                    <div className="skeleton h-8 w-24 mb-1" />
+                                ) : (
+                                    <h3 className="text-3xl font-black text-text-primary tracking-tight">{card.value}</h3>
+                                )}
                             </div>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
-            </div>
+                            <div className={clsx("p-3 rounded-2xl bg-bg-primary shadow-sm border border-border-color", card.color)}>
+                                <card.icon className="h-6 w-6" />
+                            </div>
+                        </div>
+                    </motion.div>
+                ))}
+            </motion.div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Sync Engine Gamification Panel */}
-                <motion.div 
-                    initial={{ opacity: 0, x: -20 }}
+                <motion.div
+                    initial={shouldReduceMotion ? false : { opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
+                    transition={motionTransition(!!shouldReduceMotion, { duration: MOTION_DURATION.base, ease: MOTION_EASE })}
                     className="lg:col-span-2 card p-1 flex flex-col justify-between bg-bg-primary/50 backdrop-blur-xl border border-white/10 overflow-hidden"
                 >
                     <div className="p-5 flex items-center justify-between border-b border-border-color/50">
@@ -188,30 +201,30 @@ export default function AdminDashboard() {
                 </motion.div>
 
                 {/* Quick Actions / Recent Activity */}
-                <motion.div 
-                    initial={{ opacity: 0, x: 20 }}
+                <motion.div
+                    initial={shouldReduceMotion ? false : { opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
+                    transition={motionTransition(!!shouldReduceMotion, { delay: 0.2, duration: MOTION_DURATION.base, ease: MOTION_EASE })}
                     className="card p-6 flex flex-col gap-6"
                 >
                     <div>
                         <h2 className="text-lg font-bold mb-4">Command Center</h2>
                         <div className="grid grid-cols-2 gap-3">
-                            <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/admin/products" className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-bg-secondary hover:bg-theme-primary/10 hover:text-theme-primary transition-colors border border-border-color hover:border-theme-primary/30">
+                            <MotionLink whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }} whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }} to="/admin/products" className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-bg-secondary hover:bg-theme-primary/10 hover:text-theme-primary transition-colors border border-border-color hover:border-theme-primary/30">
                                 <Package className="h-5 w-5" />
-                                <span className="text-xs font-bold text-center">Manage<br/>Products</span>
+                                <span className="text-xs font-bold text-center">Manage<br />Products</span>
                             </MotionLink>
-                            <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/admin/orders" className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-bg-secondary hover:bg-blue-500/10 hover:text-blue-500 transition-colors border border-border-color hover:border-blue-500/30">
+                            <MotionLink whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }} whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }} to="/admin/orders" className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-bg-secondary hover:bg-blue-500/10 hover:text-blue-500 transition-colors border border-border-color hover:border-blue-500/30">
                                 <ShoppingBag className="h-5 w-5" />
-                                <span className="text-xs font-bold text-center">View<br/>Orders</span>
+                                <span className="text-xs font-bold text-center">View<br />Orders</span>
                             </MotionLink>
-                            <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/admin/customers" className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-bg-secondary hover:bg-theme-accent/10 hover:text-theme-accent transition-colors border border-border-color hover:border-theme-accent/30">
+                            <MotionLink whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }} whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }} to="/admin/customers" className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-bg-secondary hover:bg-theme-accent/10 hover:text-theme-accent transition-colors border border-border-color hover:border-theme-accent/30">
                                 <Users className="h-5 w-5" />
-                                <span className="text-xs font-bold text-center">User<br/>Roles</span>
+                                <span className="text-xs font-bold text-center">User<br />Roles</span>
                             </MotionLink>
-                            <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/admin/analytics" className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-bg-secondary hover:bg-pink-500/10 hover:text-pink-500 transition-colors border border-border-color hover:border-pink-500/30">
+                            <MotionLink whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }} whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }} to="/admin/analytics" className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-bg-secondary hover:bg-pink-500/10 hover:text-pink-500 transition-colors border border-border-color hover:border-pink-500/30">
                                 <TrendingUp className="h-5 w-5" />
-                                <span className="text-xs font-bold text-center">Deep<br/>Analytics</span>
+                                <span className="text-xs font-bold text-center">Deep<br />Analytics</span>
                             </MotionLink>
                         </div>
                     </div>
@@ -222,12 +235,12 @@ export default function AdminDashboard() {
                         </div>
                         <h3 className="font-bold text-theme-primary mb-2 relative z-10">Inventory Alerts</h3>
                         <p className="text-xs text-text-secondary mb-4 relative z-10">12 items are running low across 3 stores. Replenish soon.</p>
-                        <MotionLink whileHover={{ x: 5 }} to="/admin/inventory-alerts" className="text-xs font-black text-theme-accent flex items-center gap-1 uppercase tracking-wider relative z-10 cursor-pointer">
+                        <MotionLink whileHover={shouldReduceMotion ? undefined : { x: 5 }} to="/admin/inventory-alerts" className="text-xs font-black text-theme-accent flex items-center gap-1 uppercase tracking-wider relative z-10 cursor-pointer">
                             Review Alerts <ArrowRight className="h-3 w-3" />
                         </MotionLink>
                     </div>
                 </motion.div>
             </div>
-        </div>
+        </motion.div>
     )
 }

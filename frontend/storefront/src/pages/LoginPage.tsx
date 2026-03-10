@@ -3,6 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { authApi } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
 import { Mail, Lock, LogIn, Eye, EyeOff, ShoppingBag, Check, AlertCircle, ArrowRight } from 'lucide-react'
+import Button from '@/components/ui/Button'
+import FormField, { getFieldAria } from '@/components/ui/FormField'
 
 const features = [
   'Browse thousands of curated products',
@@ -45,14 +47,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-bg-secondary">
-      {/* -- Left panel — branding ----------------------------- */}
+      {/* -- Left panel ï¿½ branding ----------------------------- */}
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden items-center justify-center">
         {/* Background */}
         <div className="absolute inset-0 gradient-primary opacity-95" />
         {/* Mesh pattern */}
-        <div className="absolute inset-0" style={{
-          backgroundImage: 'radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(255,255,255,0.08) 0%, transparent 50%)',
-        }} />
+        <div className="absolute inset-0 auth-mesh-pattern" />
         {/* Decorative circles */}
         <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
         <div className="absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
@@ -85,7 +85,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* -- Right panel — form -------------------------------- */}
+      {/* -- Right panel ï¿½ form -------------------------------- */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-3 mb-10">
@@ -113,8 +113,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
-            <div>
-              <label htmlFor="email" className="form-label">Email address</label>
+            <FormField id="email" label="Email address" required error={error || undefined}>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary pointer-events-none" />
                 <input
@@ -126,13 +125,13 @@ export default function LoginPage() {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   className={`input pl-10 ${error ? 'input-error' : ''}`}
+                  {...getFieldAria({ error: error || undefined }, 'email')}
                 />
               </div>
-            </div>
+            </FormField>
 
             {/* Password */}
-            <div>
-              <label htmlFor="password" className="form-label">Password</label>
+            <FormField id="password" label="Password" required error={error || undefined}>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary pointer-events-none" />
                 <input
@@ -144,6 +143,7 @@ export default function LoginPage() {
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Your password"
                   className={`input pl-10 pr-11 ${error ? 'input-error' : ''}`}
+                  {...getFieldAria({ error: error || undefined }, 'password')}
                 />
                 <button
                   type="button"
@@ -154,28 +154,17 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-            </div>
+            </FormField>
 
-            <button
+            <Button
               type="submit"
-              disabled={loading}
-              className="btn btn-primary w-full btn-lg mt-2"
+              loading={loading}
+              className="w-full mt-2"
+              size="lg"
+              leftIcon={<LogIn className="h-4 w-4" />}
             >
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <LogIn className="h-4 w-4" />
-                  Sign in
-                </>
-              )}
-            </button>
+              {loading ? 'Signing in...' : 'Sign in'}
+            </Button>
           </form>
 
           <p className="mt-8 text-center text-xs text-text-quaternary">

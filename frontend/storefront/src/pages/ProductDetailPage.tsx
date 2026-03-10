@@ -13,6 +13,8 @@ import ProductReviews from '@/components/ProductReviews'
 import { toast } from '@/components/ui/Toaster'
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed'
 import RecentlyViewed from '@/components/RecentlyViewed'
+import Button from '@/components/ui/Button'
+import FormField from '@/components/ui/FormField'
 
 export default function ProductDetailPage() {
     const { productId } = useParams()
@@ -209,8 +211,8 @@ export default function ProductDetailPage() {
                                 ) : (
                                     <div className="w-full h-full relative">
                                         <Suspense fallback={<Loader3D />}>
-                                            <ProductCanvas 
-                                                imageUrl={productData.thumbnail} 
+                                            <ProductCanvas
+                                                imageUrl={productData.thumbnail}
                                                 shape={productData.category_name?.toLowerCase().includes('shirt') ? 'box' : 'sphere'}
                                                 color="#8B5CF6"
                                             />
@@ -225,13 +227,13 @@ export default function ProductDetailPage() {
 
                                 {/* Preview Switcher */}
                                 <div className="absolute bottom-4 right-4 flex gap-2">
-                                    <button 
+                                    <button
                                         onClick={() => setView3D(false)}
                                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-lg ${!view3D ? 'bg-theme-primary text-white' : 'bg-white/90 text-text-primary hover:bg-white'}`}
                                     >
                                         2D
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={() => setView3D(true)}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-lg ${view3D ? 'bg-theme-primary text-white' : 'bg-white/90 text-text-primary hover:bg-white'}`}
                                     >
@@ -379,9 +381,8 @@ export default function ProductDetailPage() {
                                                     >
                                                         {v.color_hex && (
                                                             <span
-                                                                className="inline-block w-3 h-3 rounded-full mr-1.5 border border-border-color"
-                                                                // @ts-ignore — dynamic color swatch
-                                                                style={{ '--swatch': v.color_hex, backgroundColor: 'var(--swatch)' } as React.CSSProperties}
+                                                                className="inline-block w-3 h-3 rounded-full mr-1.5 border border-border-color bg-bg-tertiary"
+                                                                aria-hidden="true"
                                                             />
                                                         )}
                                                         {v.value}
@@ -404,27 +405,33 @@ export default function ProductDetailPage() {
                                     <MapPin className="h-4 w-4 text-theme-primary" />
                                     <span className="font-semibold text-text-primary text-sm">Check Delivery</span>
                                 </div>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength={6}
-                                        placeholder="Enter pincode"
-                                        value={pincode}
-                                        onChange={(e) => {
-                                            setPincode(e.target.value.replace(/\D/g, ''))
-                                            setDeliveryInfo(null)
-                                        }}
-                                        className="input flex-1 text-sm"
-                                    />
-                                    <button
-                                        onClick={checkPincode}
-                                        disabled={pincodeLoading}
-                                        className="btn btn-outline btn-sm px-4"
-                                    >
-                                        {pincodeLoading ? 'Checking...' : 'Check'}
-                                    </button>
-                                </div>
+                                <FormField id="delivery-pincode-check" label="Pincode" className="!space-y-2">
+                                    <div className="flex gap-2">
+                                        <input
+                                            id="delivery-pincode-check"
+                                            type="text"
+                                            inputMode="numeric"
+                                            maxLength={6}
+                                            placeholder="Enter pincode"
+                                            value={pincode}
+                                            onChange={(e) => {
+                                                setPincode(e.target.value.replace(/\D/g, ''))
+                                                setDeliveryInfo(null)
+                                            }}
+                                            className="input flex-1 text-sm"
+                                        />
+                                        <Button
+                                            type="button"
+                                            onClick={checkPincode}
+                                            disabled={pincodeLoading}
+                                            variant="outline"
+                                            size="sm"
+                                            className="px-4"
+                                        >
+                                            {pincodeLoading ? 'Checking...' : 'Check'}
+                                        </Button>
+                                    </div>
+                                </FormField>
                                 {deliveryInfo && (
                                     <div className="mt-3 text-sm">
                                         {deliveryInfo.available === false ? (
@@ -515,7 +522,7 @@ export default function ProductDetailPage() {
                                                 <div className="flex items-center border-2 border-border-color rounded-xl overflow-hidden">
                                                     <button
                                                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                                        className="p-3 hover:bg-bg-tertiary transition-colors"
+                                                        className="h-11 w-11 flex items-center justify-center hover:bg-bg-tertiary transition-colors"
                                                         aria-label="Decrease quantity"
                                                     >
                                                         <Minus className="h-5 w-5 text-text-primary" />
@@ -523,7 +530,7 @@ export default function ProductDetailPage() {
                                                     <span className="text-xl font-bold w-14 text-center text-text-primary">{quantity}</span>
                                                     <button
                                                         onClick={() => setQuantity(Math.min(productData.quantity, quantity + 1))}
-                                                        className="p-3 hover:bg-bg-tertiary transition-colors"
+                                                        className="h-11 w-11 flex items-center justify-center hover:bg-bg-tertiary transition-colors"
                                                         aria-label="Increase quantity"
                                                     >
                                                         <Plus className="h-5 w-5 text-text-primary" />
@@ -567,7 +574,8 @@ export default function ProductDetailPage() {
                                                         placeholder="your@email.com"
                                                         className="input flex-1 text-sm"
                                                     />
-                                                    <button
+                                                    <Button
+                                                        type="button"
                                                         onClick={() => {
                                                             if (!notifyEmail) return
                                                             const stored = JSON.parse(localStorage.getItem('notify_me') || '[]')
@@ -577,10 +585,12 @@ export default function ProductDetailPage() {
                                                             toast.success("We'll notify you when it's back in stock!")
                                                         }}
                                                         disabled={!notifyEmail}
-                                                        className="btn btn-outline btn-sm flex-shrink-0"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="flex-shrink-0"
                                                     >
                                                         Notify Me
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                             </div>
                                         ) : (
