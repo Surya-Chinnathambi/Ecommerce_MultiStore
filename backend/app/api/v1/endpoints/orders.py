@@ -5,7 +5,7 @@ Like Amazon/Flipkart order management system
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, func, or_
+from sqlalchemy import desc, func
 from typing import Optional, List
 from datetime import datetime
 
@@ -167,6 +167,8 @@ async def get_customer_orders(
     request: Request,
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
+    status_filter: Optional[str] = Query(None, description="Filter by order status"),
+    search: Optional[str] = Query(None, description="Search by order number/product"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -177,73 +179,20 @@ async def get_customer_orders(
     # Get store_id from request state (set by TenantMiddleware)
     store_id = request.state.store_id
     
-    # Build identity condition: match by user_id when available (most reliable)
-    # OR by email for orders placed before user_id was stored.
-    identity_condition = or_(
-        Order.user_id == current_user.id,
-        Order.customer_email == current_user.email
+    service = get_order_service(db)
+    result = service.list_customer_orders(
+        store_id=store_id,
+        current_user=current_user,
+        page=page,
+        per_page=per_page,
+        status_filter=status_filter,
+        search=search,
     )
-
-    # Query orders scoped to this store
-    query = db.query(Order).options(
-        joinedload(Order.items).joinedload(OrderItem.product)
-    ).filter(
-        identity_condition,
-        Order.store_id == store_id
-    )
-    
-    total = query.count()
-    
-    orders = query.order_by(desc(Order.created_at))\
-                  .offset((page - 1) * per_page)\
-                  .limit(per_page)\
-                  .all()
-    
-    orders_data = []
-    for order in orders:
-        order_dict = {
-            "id": order.id,
-            "order_number": order.order_number,
-            "order_status": order.order_status.value if hasattr(order.order_status, "value") else order.order_status,
-            "payment_status": order.payment_status.value if hasattr(order.payment_status, "value") else order.payment_status,
-            "payment_method": order.payment_method,
-            "subtotal": float(order.subtotal),
-            "tax_amount": float(order.tax_amount),
-            "delivery_charge": float(order.delivery_charge),
-            "total_amount": float(order.total_amount),
-            "created_at": order.created_at.isoformat() if order.created_at else None,
-            "items": [
-                {
-                    "id": item.id,
-                    "product_name": item.product_name,
-                    "quantity": item.quantity,
-                    "unit_price": float(item.unit_price),
-                    "total": float(item.total),
-                    "product": {
-                        "id": item.product.id if item.product else None,
-                        "image_url": (item.product.images[0] if item.product and getattr(item.product, "images", None) else None)
-                    } if item.product else None
-                }
-                for item in order.items
-            ],
-            "shipping_address": {
-                "address": order.delivery_address,
-                "city": order.delivery_city,
-                "state": order.delivery_state,
-                "postal_code": order.delivery_pincode
-            }
-        }
-        orders_data.append(order_dict)
     
     return APIResponse(
         success=True,
-        data=orders_data,
-        meta={
-            "total": total,
-            "page": page,
-            "per_page": per_page,
-            "total_pages": (total + per_page - 1) // per_page
-        }
+        data=result["orders"],
+        meta=result["meta"]
     )
 
 

@@ -87,7 +87,7 @@ export default function Header() {
     ]
 
     return (
-        <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled
+        <header className={`sticky top-0 z-[120] transition-all duration-300 ${scrolled
             ? 'glass shadow-md border-b border-border-color/80'
             : 'bg-bg-primary border-b border-border-color'
             }`}>
@@ -187,7 +187,7 @@ export default function Header() {
                                 </button>
 
                                 {userMenuOpen && (
-                                    <div className="absolute right-0 mt-2 w-64 bg-bg-primary border border-border-color rounded-[var(--radius-xl)] shadow-dropdown py-1.5 z-50 animate-scale-in">
+                                    <div className="absolute right-0 mt-2 w-64 max-h-[calc(100vh-5rem)] overflow-y-auto overscroll-contain bg-bg-primary border border-border-color rounded-[var(--radius-xl)] shadow-dropdown py-1.5 z-[130] animate-scale-in">
                                         {/* User info header */}
                                         <div className="px-4 py-3 border-b border-border-color">
                                             <p className="text-sm font-semibold text-text-primary">{user.full_name}</p>

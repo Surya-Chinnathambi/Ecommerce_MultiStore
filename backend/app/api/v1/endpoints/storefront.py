@@ -30,6 +30,67 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+TRACKING_STATUS_FLOW = ["pending", "confirmed", "processing", "shipped", "delivered"]
+
+
+def _normalize_phone(phone: Optional[str]) -> str:
+    if not phone:
+        return ""
+    return "".join(ch for ch in phone if ch.isdigit())
+
+
+def _safe_status(value: Any) -> str:
+    return value.value if hasattr(value, "value") else str(value)
+
+
+def _safe_iso(value: Optional[datetime]) -> Optional[str]:
+    return value.isoformat() if value else None
+
+
+def _build_tracking_timeline(order: Order) -> List[Dict[str, Any]]:
+    current_status = _safe_status(order.order_status)
+    try:
+        current_idx = TRACKING_STATUS_FLOW.index(current_status)
+    except ValueError:
+        current_idx = 0
+
+    timeline: List[Dict[str, Any]] = []
+    for idx, key in enumerate(TRACKING_STATUS_FLOW):
+        timestamp: Optional[datetime] = None
+
+        if key == "pending":
+            timestamp = order.created_at
+        elif key == "delivered" and order.delivered_at:
+            timestamp = order.delivered_at
+        elif idx == current_idx:
+            timestamp = order.updated_at or order.created_at
+        elif key == "shipped" and current_idx > TRACKING_STATUS_FLOW.index("shipped") and order.expected_delivery_date:
+            timestamp = order.expected_delivery_date
+
+        timeline.append(
+            {
+                "key": key,
+                "label": key.replace("_", " ").title(),
+                "completed": idx < current_idx,
+                "active": idx == current_idx,
+                "timestamp": _safe_iso(timestamp),
+            }
+        )
+
+    if current_status == "cancelled":
+        timeline.append(
+            {
+                "key": "cancelled",
+                "label": "Cancelled",
+                "completed": False,
+                "active": True,
+                "timestamp": _safe_iso(order.updated_at or order.created_at),
+            }
+        )
+
+    return timeline
+
+
 @router.get("/store-info", response_model=APIResponse)
 async def get_store_info(
     request: Request,
@@ -384,6 +445,30 @@ async def create_order(
         raise HTTPException(status_code=500, detail="Failed to place order")
 
 
+@router.get("/orders", response_model=APIResponse)
+async def list_my_orders(
+    request: Request,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=50),
+    status_filter: Optional[str] = Query(None, description="Filter by order status"),
+    search: Optional[str] = Query(None, description="Search order number or product"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_read_db),
+):
+    """Canonical storefront endpoint for current customer's orders."""
+    store_id = request.state.store_id
+    service = get_order_service(db)
+    result = service.list_customer_orders(
+        store_id=store_id,
+        current_user=current_user,
+        page=page,
+        per_page=per_page,
+        status_filter=status_filter,
+        search=search,
+    )
+    return APIResponse(success=True, data=result["orders"], meta=result["meta"])
+
+
 @router.get("/orders/{order_number}", response_model=APIResponse)
 async def get_order_details(
     request: Request,
@@ -453,6 +538,7 @@ async def track_order(
     request: Request,
     order_number: str,
     email: Optional[str] = Query(None, description="Verify email for guest tracking"),
+    customer_phone: Optional[str] = Query(None, description="Verify phone number for guest tracking"),
     current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_read_db)
 ):
@@ -463,11 +549,12 @@ async def track_order(
     """
     store_id = request.state.store_id
     
+    normalized_order_number = order_number.strip().upper()
     order = db.query(Order).options(
         joinedload(Order.items).joinedload(OrderItem.product)
     ).filter(
         Order.store_id == store_id,
-        Order.order_number == order_number
+        func.upper(Order.order_number) == normalized_order_number
     ).first()
     
     if not order:
@@ -478,16 +565,29 @@ async def track_order(
     
     # Permission check
     is_authorized = False
+    verified_by = "none"
     if current_user:
         from app.models.auth_models import UserRole
         if order.user_id == current_user.id or order.customer_email == current_user.email:
             is_authorized = True
+            verified_by = "account"
         elif current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             is_authorized = True
+            verified_by = "admin"
     
     if not is_authorized and email:
-        if order.customer_email.lower() == email.lower():
+        if (order.customer_email or "").lower() == email.strip().lower():
             is_authorized = True
+            verified_by = "email"
+
+    if not is_authorized and customer_phone:
+        if _normalize_phone(order.customer_phone) == _normalize_phone(customer_phone):
+            is_authorized = True
+            verified_by = "phone"
+
+    order_status = _safe_status(order.order_status)
+    payment_status = _safe_status(order.payment_status)
+    timeline = _build_tracking_timeline(order)
 
     if not is_authorized:
         # If not authorized, ONLY return status, hide PII
@@ -495,9 +595,18 @@ async def track_order(
             success=True,
             data={
                 "order_number": order.order_number,
-                "order_status": order.order_status.value if hasattr(order.order_status, "value") else order.order_status,
-                "created_at": order.created_at.isoformat() if order.created_at else None,
-                "message": "Full details hidden. Provide email or login to see more."
+                "order_status": order_status,
+                "created_at": _safe_iso(order.created_at),
+                "updated_at": _safe_iso(order.updated_at),
+                "estimated_delivery_date": _safe_iso(order.expected_delivery_date),
+                "tracking": {
+                    "current_step": next((idx for idx, st in enumerate(TRACKING_STATUS_FLOW) if st == order_status), 0),
+                    "total_steps": len(TRACKING_STATUS_FLOW),
+                    "timeline": timeline,
+                },
+                "limited_details": True,
+                "verification_hint": "Provide matching email or phone number, or login to see full details.",
+                "message": "Full details hidden. Provide matching email/phone or login to see more."
             }
         )
 
@@ -507,8 +616,8 @@ async def track_order(
         data={
             "id": order.id,
             "order_number": order.order_number,
-            "order_status": order.order_status.value,
-            "payment_status": order.payment_status.value,
+            "order_status": order_status,
+            "payment_status": payment_status,
             "payment_method": order.payment_method,
             "customer_name": order.customer_name,
             "customer_email": order.customer_email,
@@ -523,8 +632,11 @@ async def track_order(
             "tax_amount": float(order.tax_amount),
             "delivery_charge": float(order.delivery_charge),
             "total_amount": float(order.total_amount),
-            "created_at": order.created_at.isoformat() if order.created_at else None,
-            "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+            "created_at": _safe_iso(order.created_at),
+            "updated_at": _safe_iso(order.updated_at),
+            "expected_delivery_date": _safe_iso(order.expected_delivery_date),
+            "delivered_at": _safe_iso(order.delivered_at),
+            "verified_by": verified_by,
             "items": [
                 {
                     "id": item.id,
@@ -545,6 +657,11 @@ async def track_order(
                 "city": order.delivery_city,
                 "state": order.delivery_state,
                 "postal_code": order.delivery_pincode
+            },
+            "tracking": {
+                "current_step": next((idx for idx, st in enumerate(TRACKING_STATUS_FLOW) if st == order_status), 0),
+                "total_steps": len(TRACKING_STATUS_FLOW),
+                "timeline": timeline,
             }
         }
     )

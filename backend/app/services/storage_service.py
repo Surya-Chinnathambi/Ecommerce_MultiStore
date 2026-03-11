@@ -68,7 +68,8 @@ class LocalStorage(BaseStorage):
 
     async def get_url(self, path: str, expires_in: int = 3600) -> str:
         # Local storage doesn't really have signed URLs in this simple impl
-        return f"{self.base_url}/{path.replace('\\', '/')}"
+        path_str = path.replace('\\', '/')
+        return f"{self.base_url}/{path_str}"
 
     async def list_files(self, prefix: str = "") -> List[str]:
         search_dir = self.upload_dir / prefix

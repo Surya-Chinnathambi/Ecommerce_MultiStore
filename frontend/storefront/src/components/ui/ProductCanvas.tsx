@@ -17,10 +17,11 @@ function ProductModel({ modelUrl }: { modelUrl: string }) {
 }
 
 function ProductObject({ imageUrl, color = "#8B5CF6", shape = 'sphere' }: Omit<ProductCanvasProps, 'interactive' | 'modelUrl'>) {
-    const meshRef = useRef<THREE.Mesh>(null!)
+    const meshRef = useRef<THREE.Mesh | null>(null)
     const texture = imageUrl ? useTexture(imageUrl) : null
 
     useFrame((state) => {
+        if (!meshRef.current) return
         meshRef.current.rotation.y += 0.005
         meshRef.current.rotation.x = Math.sin(state.clock.getElapsedTime()) * 0.1
     })
@@ -31,8 +32,8 @@ function ProductObject({ imageUrl, color = "#8B5CF6", shape = 'sphere' }: Omit<P
                 {shape === 'sphere' && <sphereGeometry args={[1, 64, 64]} />}
                 {shape === 'box' && <boxGeometry args={[1.4, 1.4, 1.4]} />}
                 {shape === 'torus' && <torusGeometry args={[1, 0.35, 32, 100]} />}
-                
-                <meshPhysicalMaterial 
+
+                <meshPhysicalMaterial
                     color={color}
                     roughness={0.1}
                     metalness={0.8}
@@ -41,14 +42,13 @@ function ProductObject({ imageUrl, color = "#8B5CF6", shape = 'sphere' }: Omit<P
                     envMapIntensity={2.0}
                     transparent={true}
                     opacity={0.9}
-                >
-                    {texture && <Decal 
-                        position={[0, 0, 1]} 
-                        rotation={[0, 0, 0]} 
-                        scale={1.5} 
-                        map={texture} 
-                    />}
-                </meshPhysicalMaterial>
+                />
+                {texture && <Decal
+                    position={[0, 0, 1]}
+                    rotation={[0, 0, 0]}
+                    scale={1.5}
+                    map={texture}
+                />}
             </mesh>
         </Float>
     )
@@ -69,10 +69,10 @@ export default function ProductCanvas({ imageUrl, modelUrl, color, shape, intera
                 <Environment preset="city" />
             </Suspense>
             {interactive && (
-                <OrbitControls 
-                    enableZoom={false} 
-                    enablePan={false} 
-                    autoRotate 
+                <OrbitControls
+                    enableZoom={false}
+                    enablePan={false}
+                    autoRotate
                     autoRotateSpeed={2}
                     minPolarAngle={Math.PI / 3}
                     maxPolarAngle={Math.PI / 1.5}

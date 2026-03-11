@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
+from sqlalchemy.exc import DataError, ProgrammingError
 from typing import List, Optional
 from datetime import datetime, timedelta
 import uuid
@@ -35,7 +36,7 @@ class BannerCreate(BaseModel):
 
 
 class BannerResponse(BaseModel):
-    id: str
+    id: uuid.UUID
     title: str
     subtitle: Optional[str]
     description: Optional[str]
@@ -202,16 +203,42 @@ def create_banner(
     if not current_user.store_id:
         raise HTTPException(status_code=400, detail="User not associated with a store")
     
+    banner_data = banner.model_dump()
+    if not banner_data.get("start_date"):
+        banner_data["start_date"] = datetime.utcnow()
+
+    # Guard against oversized URLs so the API returns a clear validation error.
+    if banner_data.get("image_url") and len(banner_data["image_url"]) > 2048:
+        raise HTTPException(status_code=422, detail="Image URL is too long (max 2048 characters)")
+    if banner_data.get("link_url") and len(banner_data["link_url"]) > 2048:
+        raise HTTPException(status_code=422, detail="Link URL is too long (max 2048 characters)")
+
     new_banner = PromotionalBanner(
-        **banner.model_dump(),
+        **banner_data,
         store_id=current_user.store_id,
-        start_date=banner.start_date or datetime.utcnow()
     )
     
     db.add(new_banner)
-    db.commit()
+    try:
+        db.commit()
+    except (DataError, ProgrammingError):
+        db.rollback()
+        raise HTTPException(status_code=422, detail="Invalid banner payload. Please verify URL lengths and values.")
     db.refresh(new_banner)
-    return new_banner
+    return {
+        "id": str(new_banner.id),
+        "title": new_banner.title,
+        "subtitle": new_banner.subtitle,
+        "description": new_banner.description,
+        "image_url": new_banner.image_url,
+        "link_url": new_banner.link_url,
+        "banner_type": new_banner.banner_type.value if hasattr(new_banner.banner_type, "value") else str(new_banner.banner_type),
+        "status": new_banner.status.value if hasattr(new_banner.status, "value") else str(new_banner.status),
+        "start_date": new_banner.start_date,
+        "end_date": new_banner.end_date,
+        "display_order": new_banner.display_order,
+        "click_count": new_banner.click_count,
+    }
 
 
 @router.delete("/banners/{banner_id}")

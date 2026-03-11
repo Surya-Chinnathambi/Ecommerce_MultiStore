@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { adminApi } from '@/lib/api'
+import { useAuthStore } from '@/store/authStore'
 import { Users, IndianRupee, ShoppingBag, Phone, Mail, CalendarDays } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import FilterBar from '@/components/ui/FilterBar'
@@ -41,16 +42,40 @@ function buildCustomers(orders: any[]): CustomerSummary[] {
     return Array.from(map.values()).sort((a, b) => b.totalSpent - a.totalSpent)
 }
 
-const storeId = () => localStorage.getItem('store_id') ?? ''
+function resolveStoreId(userStoreId?: string | null): string {
+    return userStoreId || localStorage.getItem('store_id') || ''
+}
+
+function extractOrders(payload: any): any[] {
+    // Backend /orders/admin returns data as a flat array (not data.orders).
+    if (Array.isArray(payload?.data?.data)) return payload.data.data
+    if (Array.isArray(payload?.data?.data?.orders)) return payload.data.data.orders
+    return []
+}
 
 export default function AdminCustomersPage() {
     const [search, setSearch] = useState('')
+    const { user } = useAuthStore()
+    const activeStoreId = resolveStoreId(user?.store_id)
 
-    const { data: ordersData, isLoading } = useQuery({
-        queryKey: ['admin-customers-orders'],
-        queryFn: () =>
-            adminApi.getAdminOrders({ store_id: storeId(), per_page: 500, page: 1 })
-                .then(r => r.data.data?.orders ?? []),
+    const { data: ordersData, isLoading, isError, error, refetch } = useQuery({
+        queryKey: ['admin-customers-orders', activeStoreId],
+        enabled: Boolean(activeStoreId),
+        queryFn: async () => {
+            const perPage = 100
+            const first = await adminApi.getAdminOrders({ store_id: activeStoreId, per_page: perPage, page: 1 })
+            const firstOrders = extractOrders(first)
+            const totalPages = Number(first?.data?.meta?.total_pages || 1)
+
+            if (totalPages <= 1) return firstOrders
+
+            let all = [...firstOrders]
+            for (let p = 2; p <= totalPages; p++) {
+                const res = await adminApi.getAdminOrders({ store_id: activeStoreId, per_page: perPage, page: p })
+                all = all.concat(extractOrders(res))
+            }
+            return all
+        },
     })
 
     const customers = useMemo(() => buildCustomers(ordersData ?? []), [ordersData])
@@ -74,6 +99,23 @@ export default function AdminCustomersPage() {
                 title="Customers"
                 subtitle={`${customers.length} unique customers · ₹${totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })} total revenue`}
             />
+
+            {isError && (
+                <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <div className="font-semibold">Unable to load customers</div>
+                            <div className="text-red-200/90">
+                                {(error as any)?.response?.data?.detail || 'The server rejected the request. Please try again.'}
+                            </div>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+                            Retry
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             <FilterBar
                 className="mb-6"
                 searchValue={search}

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Megaphone, Zap, Plus, X, Trash2, CheckCircle, Clock, Eye, ExternalLink, Image as ImageIcon, Layers } from 'lucide-react'
+import { Megaphone, Zap, Plus, X, Trash2, Clock, Eye, ExternalLink, Image as ImageIcon, Layers, Activity, Sparkles, BarChart3 } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from '@/components/ui/Toaster'
 import Modal, { ModalBody, ModalHeader } from '@/components/ui/Modal'
@@ -60,6 +60,7 @@ const emptyFlash = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const BANNER_TYPES = ['hero', 'promotional', 'category', 'flash_sale']
+const STAGGER_DELAY_CLASSES = ['[animation-delay:0ms]', '[animation-delay:80ms]', '[animation-delay:160ms]', '[animation-delay:240ms]', '[animation-delay:320ms]', '[animation-delay:400ms]', '[animation-delay:480ms]', '[animation-delay:560ms]']
 
 // ─── Offer Templates ─────────────────────────────────────────────────────────
 
@@ -70,6 +71,10 @@ const OFFER_TEMPLATES = [
     { id: 'clearance', bannerType: 'promotional', name: 'Clearance', desc: 'Clear old inventory fast', emoji: '🔥', headerBg: 'bg-gradient-to-br from-amber-400 to-orange-600', badgeBg: 'bg-red-600', badgeText: 'text-white', cardBorder: 'border-amber-500/40' },
     { id: 'bundle-offer', bannerType: 'promotional', name: 'Bundle Offer', desc: 'Buy more, save more deals', emoji: '🎁', headerBg: 'bg-gradient-to-br from-blue-600 to-indigo-700', badgeBg: 'bg-cyan-400', badgeText: 'text-blue-900', cardBorder: 'border-blue-500/40' },
     { id: 'seasonal', bannerType: 'hero', name: 'Seasonal', desc: 'Holiday & seasonal campaigns', emoji: '🌟', headerBg: 'bg-gradient-to-br from-rose-400 to-pink-600', badgeBg: 'bg-white', badgeText: 'text-rose-700', cardBorder: 'border-rose-500/40' },
+    { id: 'luxury-drop', bannerType: 'hero', name: 'Luxury Drop', desc: 'Premium launch with cinematic look', emoji: '💎', headerBg: 'bg-gradient-to-br from-zinc-900 via-slate-800 to-zinc-700', badgeBg: 'bg-amber-300', badgeText: 'text-zinc-900', cardBorder: 'border-amber-400/40' },
+    { id: 'midnight-tech', bannerType: 'category', name: 'Midnight Tech', desc: 'Sharp neon style for electronics', emoji: '🛰️', headerBg: 'bg-gradient-to-br from-slate-950 via-cyan-900 to-blue-900', badgeBg: 'bg-cyan-300', badgeText: 'text-slate-950', cardBorder: 'border-cyan-400/40' },
+    { id: 'monsoon-fresh', bannerType: 'promotional', name: 'Monsoon Fresh', desc: 'Lifestyle look with soft gradients', emoji: '🌧️', headerBg: 'bg-gradient-to-br from-teal-700 via-emerald-600 to-lime-500', badgeBg: 'bg-white', badgeText: 'text-teal-800', cardBorder: 'border-emerald-400/40' },
+    { id: 'realtime-rush', bannerType: 'flash_sale', name: 'Realtime Rush', desc: 'Live countdown + shoppers pulse', emoji: '📈', headerBg: 'bg-gradient-to-br from-fuchsia-700 via-violet-700 to-indigo-700', badgeBg: 'bg-white', badgeText: 'text-fuchsia-700', cardBorder: 'border-fuchsia-400/50' },
 ]
 
 const emptyTemplateForm = {
@@ -82,6 +87,9 @@ const emptyTemplateForm = {
     linkUrl: '',
     start_date: new Date().toISOString().slice(0, 16),
     end_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16),
+    viewersNow: '41',
+    stockLeft: '24',
+    realtimeMode: true,
 }
 
 function fmtDate(d: string) {
@@ -93,6 +101,18 @@ function isActive(start: string, end?: string) {
     const s = new Date(start).getTime()
     const e = end ? new Date(end).getTime() : Infinity
     return now >= s && now <= e
+}
+
+function formatCountdown(endDate: string, nowMs: number) {
+    const end = new Date(endDate).getTime()
+    if (!end || Number.isNaN(end)) return 'No end date'
+    const diff = end - nowMs
+    if (diff <= 0) return 'Expired'
+    const total = Math.floor(diff / 1000)
+    const h = Math.floor(total / 3600)
+    const m = Math.floor((total % 3600) / 60)
+    const s = total % 60
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -107,6 +127,17 @@ export default function AdminAdsPage() {
     const [deletingId, setDeletingId] = useState<string | null>(null)
     const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
     const [templateForm, setTemplateForm] = useState({ ...emptyTemplateForm })
+    const [previewNowMs, setPreviewNowMs] = useState(Date.now())
+    const [viewerPulse, setViewerPulse] = useState(0)
+
+    useEffect(() => {
+        if (tab !== 'templates' || !selectedTemplate) return
+        const t = setInterval(() => {
+            setPreviewNowMs(Date.now())
+            setViewerPulse(Math.floor(Math.random() * 7) - 3)
+        }, 1000)
+        return () => clearInterval(t)
+    }, [tab, selectedTemplate])
 
     // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -132,7 +163,19 @@ export default function AdminAdsPage() {
             setShowBannerForm(false)
             setBannerForm({ ...emptyBanner })
         },
-        onError: () => toast.error('Failed to create banner'),
+        onError: (err: any) => {
+            const status = err?.response?.status
+            const detail = err?.response?.data?.detail
+            if (status === 401) {
+                toast.error('Session expired. Please sign in again.')
+                return
+            }
+            if (typeof detail === 'string' && detail.trim()) {
+                toast.error(detail)
+                return
+            }
+            toast.error('Failed to create banner')
+        },
     })
 
     const deleteBanner = useMutation({
@@ -165,37 +208,136 @@ export default function AdminAdsPage() {
         onError: () => toast.error('Failed to deactivate'),
     })
 
+    const liveBannerCount = banners.filter(b => isActive(b.start_date, b.end_date)).length
+    const scheduledBannerCount = banners.length - liveBannerCount
+    const activeFlashCount = flashSales.filter(fs => fs.is_active && isActive(fs.start_time, fs.end_time)).length
+    const totalBannerClicks = banners.reduce((sum, b) => sum + (b.click_count || 0), 0)
+    const avgClicksPerBanner = banners.length ? Math.round(totalBannerClicks / banners.length) : 0
+    const campaignHealth = banners.length ? Math.round((liveBannerCount / banners.length) * 100) : 0
+    const featuredBanners = [...banners].sort((a, b) => (b.click_count || 0) - (a.click_count || 0)).slice(0, 3)
+
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
-        <div className="container mx-auto px-4 py-8 animate-fade-in">
+        <div className="container mx-auto px-4 py-8 animate-fade-in relative overflow-hidden">
+            <div className="pointer-events-none absolute -top-16 -right-20 h-52 w-52 rounded-full bg-theme-primary/10 blur-3xl animate-float" />
+            <div className="pointer-events-none absolute top-28 -left-24 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl animate-float [animation-delay:800ms]" />
+
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                <div>
-                    <h1 className="section-title flex items-center gap-2">
-                        <Megaphone className="h-6 w-6 text-theme-primary" />
-                        Ads & Promotions
-                    </h1>
-                    <p className="section-subtitle">Manage banners, flash sales and promotional campaigns</p>
+            <div className="relative mb-6 rounded-3xl border border-border-color bg-gradient-to-br from-bg-primary via-bg-primary to-theme-primary/5 p-5 sm:p-6 shadow-lg overflow-hidden">
+                <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full border border-theme-primary/30 animate-spin-slow" />
+                <div className="pointer-events-none absolute right-20 bottom-0 h-16 w-16 rounded-full bg-theme-accent/20 blur-2xl animate-float" />
+
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                        <h1 className="section-title flex items-center gap-2">
+                            <Megaphone className="h-6 w-6 text-theme-primary animate-bounce-in" />
+                            Ads Command Center
+                        </h1>
+                        <p className="section-subtitle">Redesigned campaign workspace with live previews and one-click publishing.</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:w-auto">
+                        <div className="rounded-xl border border-border-color bg-bg-secondary/70 px-3 py-2">
+                            <p className="text-[11px] uppercase tracking-wide text-text-tertiary">Live Banners</p>
+                            <p className="text-lg font-bold text-emerald-500">{liveBannerCount}</p>
+                        </div>
+                        <div className="rounded-xl border border-border-color bg-bg-secondary/70 px-3 py-2">
+                            <p className="text-[11px] uppercase tracking-wide text-text-tertiary">Scheduled</p>
+                            <p className="text-lg font-bold text-amber-500">{scheduledBannerCount}</p>
+                        </div>
+                        <div className="rounded-xl border border-border-color bg-bg-secondary/70 px-3 py-2">
+                            <p className="text-[11px] uppercase tracking-wide text-text-tertiary">Flash Active</p>
+                            <p className="text-lg font-bold text-cyan-500">{activeFlashCount}</p>
+                        </div>
+                    </div>
                 </div>
                 {tab !== 'templates' && (
                     <button
                         onClick={() => tab === 'banners' ? setShowBannerForm(true) : setShowFlashForm(true)}
-                        className="btn btn-primary"
+                        className="btn btn-primary mt-4"
                     >
                         <Plus className="h-4 w-4" />
                         {tab === 'banners' ? 'New Banner' : 'New Flash Sale'}
                     </button>
                 )}
+
+                <div className="mt-5 grid lg:grid-cols-3 gap-3">
+                    <div className="lg:col-span-2 rounded-2xl border border-border-color bg-bg-secondary/70 p-4">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                            <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                                <Activity className="h-4 w-4 text-cyan-500" /> Campaign Intelligence
+                            </h3>
+                            <span className="text-xs text-text-tertiary">Live analytics snapshot</span>
+                        </div>
+                        <div className="grid sm:grid-cols-3 gap-2">
+                            <div className="rounded-xl border border-border-color bg-bg-primary/80 p-3">
+                                <p className="text-[11px] uppercase tracking-wide text-text-tertiary">Total Clicks</p>
+                                <p className="text-lg font-black text-cyan-400">{totalBannerClicks}</p>
+                            </div>
+                            <div className="rounded-xl border border-border-color bg-bg-primary/80 p-3">
+                                <p className="text-[11px] uppercase tracking-wide text-text-tertiary">Avg/Banner</p>
+                                <p className="text-lg font-black text-violet-400">{avgClicksPerBanner}</p>
+                            </div>
+                            <div className="rounded-xl border border-border-color bg-bg-primary/80 p-3">
+                                <p className="text-[11px] uppercase tracking-wide text-text-tertiary">Health Score</p>
+                                <p className="text-lg font-black text-emerald-400">{campaignHealth}%</p>
+                                <div className="mt-2 h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
+                                    <style dangerouslySetInnerHTML={{ __html: `.ad-health-meter{width:${campaignHealth}%}` }} />
+                                    <div className="ad-health-meter h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-border-color bg-bg-secondary/70 p-4">
+                        <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2 mb-2">
+                            <Sparkles className="h-4 w-4 text-amber-400" /> Creative Quality
+                        </h3>
+                        <p className="text-xs text-text-secondary mb-3">Realistic ads convert better when creative and urgency are both present.</p>
+                        <div className="space-y-2 text-xs">
+                            <div className="flex items-center justify-between rounded-lg bg-bg-primary/70 border border-border-color px-2.5 py-1.5">
+                                <span className="text-text-secondary">Visual richness</span>
+                                <span className="font-semibold text-emerald-400">Good</span>
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg bg-bg-primary/70 border border-border-color px-2.5 py-1.5">
+                                <span className="text-text-secondary">Urgency signals</span>
+                                <span className="font-semibold text-cyan-400">Realtime</span>
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg bg-bg-primary/70 border border-border-color px-2.5 py-1.5">
+                                <span className="text-text-secondary">Campaign variety</span>
+                                <span className="font-semibold text-violet-400">{OFFER_TEMPLATES.length} templates</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {featuredBanners.length > 0 && (
+                    <div className="mt-4 rounded-2xl border border-border-color bg-bg-secondary/65 p-3">
+                        <div className="flex items-center gap-2 mb-2 text-xs uppercase tracking-wider text-text-tertiary">
+                            <BarChart3 className="h-3.5 w-3.5" /> Top Campaigns
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-2">
+                            {featuredBanners.map((b) => (
+                                <div key={b.id} className="rounded-xl border border-border-color bg-bg-primary/80 p-2.5">
+                                    <p className="text-sm font-semibold text-text-primary truncate">{b.title}</p>
+                                    <div className="mt-1 flex items-center justify-between text-[11px] text-text-tertiary">
+                                        <span className="capitalize">{b.banner_type.replace('_', ' ')}</span>
+                                        <span className="text-cyan-400 font-semibold">{b.click_count} clicks</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 p-1 bg-bg-tertiary rounded-xl mb-6 w-fit">
+            <div className="flex gap-1 p-1.5 bg-bg-tertiary/80 rounded-2xl mb-6 w-fit border border-border-color shadow-sm">
                 {(['banners', 'flash', 'templates'] as const).map(t => (
                     <button
                         key={t}
                         onClick={() => setTab(t)}
-                        className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${tab === t ? 'bg-bg-primary shadow text-text-primary' : 'text-text-secondary hover:text-text-primary'
+                        className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${tab === t ? 'bg-bg-primary shadow-md text-text-primary scale-[1.02]' : 'text-text-secondary hover:text-text-primary hover:bg-bg-primary/40'
                             }`}
                     >
                         {t === 'banners' ? (
@@ -222,12 +364,15 @@ export default function AdminAdsPage() {
                             <p className="text-text-secondary">No banners yet. Create your first banner!</p>
                         </div>
                     ) : (
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
                             {banners.map(b => {
                                 const live = isActive(b.start_date, b.end_date)
                                 return (
-                                    <div key={b.id} className={`card p-0 overflow-hidden border-2 transition-all ${live ? 'border-green-500/30' : 'border-border-color'
-                                        }`}>
+                                    <div
+                                        key={b.id}
+                                        className={`card p-0 overflow-hidden border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl animate-slide-up ${STAGGER_DELAY_CLASSES[b.display_order % STAGGER_DELAY_CLASSES.length]} ${live ? 'border-emerald-500/40 shadow-[0_10px_30px_rgba(16,185,129,0.12)]' : 'border-border-color'
+                                            }`}
+                                    >
                                         {/* Image preview */}
                                         {b.image_url ? (
                                             <img src={b.image_url} alt={b.title} className="w-full h-32 object-cover" />
@@ -239,9 +384,16 @@ export default function AdminAdsPage() {
                                         <div className="p-4 space-y-2">
                                             <div className="flex items-start justify-between gap-2">
                                                 <h3 className="font-semibold text-text-primary text-sm leading-tight">{b.title}</h3>
-                                                <span className={`badge flex-shrink-0 text-xs ${live ? 'bg-green-500/10 text-green-600' : 'bg-bg-tertiary text-text-tertiary'
+                                                <span className={`badge flex-shrink-0 text-xs ${live ? 'bg-emerald-500/10 text-emerald-600' : 'bg-bg-tertiary text-text-tertiary'
                                                     }`}>
-                                                    {live ? <><CheckCircle className="h-3 w-3 inline mr-1" />Live</> : <><Clock className="h-3 w-3 inline mr-1" />Inactive</>}
+                                                    {live ? (
+                                                        <>
+                                                            <span className="relative inline-flex h-2 w-2 mr-1.5 rounded-full bg-emerald-500">
+                                                                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 animate-ping" />
+                                                            </span>
+                                                            Live
+                                                        </>
+                                                    ) : <><Clock className="h-3 w-3 inline mr-1" />Inactive</>}
                                                 </span>
                                             </div>
                                             {b.subtitle && <p className="text-xs text-text-secondary line-clamp-2">{b.subtitle}</p>}
@@ -349,21 +501,24 @@ export default function AdminAdsPage() {
             {/* ── TEMPLATES TAB ── */}
             {tab === 'templates' && (
                 <div className="space-y-6">
-                    <p className="text-text-secondary">Choose a pre-built design, fill in your product details, and publish instantly as a banner.</p>
+                    <div className="rounded-2xl border border-border-color bg-gradient-to-r from-bg-primary to-bg-tertiary/70 p-4 sm:p-5">
+                        <p className="text-text-secondary">Choose a pre-built design, fill in your product details, and publish instantly as a banner. Added realistic campaign skins plus a realtime template with live countdown, viewer pulse, and stock urgency.</p>
+                    </div>
 
                     {/* Template picker grid */}
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {OFFER_TEMPLATES.map(tmpl => (
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {OFFER_TEMPLATES.map((tmpl, idx) => (
                             <button
                                 key={tmpl.id}
                                 onClick={() => setSelectedTemplate(selectedTemplate === tmpl.id ? null : tmpl.id)}
-                                className={`card p-0 overflow-hidden text-left transition-all hover:shadow-lg ${selectedTemplate === tmpl.id
-                                    ? `border-2 ${tmpl.cardBorder} shadow-lg`
-                                    : 'border-2 border-transparent'
+                                className={`card p-0 overflow-hidden text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-xl animate-slide-up ${STAGGER_DELAY_CLASSES[idx % STAGGER_DELAY_CLASSES.length]} ${selectedTemplate === tmpl.id
+                                    ? `border ${tmpl.cardBorder} shadow-xl ring-1 ring-theme-primary/20`
+                                    : 'border border-transparent'
                                     }`}
                             >
-                                <div className={`${tmpl.headerBg} h-20 flex items-end justify-between p-3`}>
-                                    <span className="text-3xl">{tmpl.emoji}</span>
+                                <div className={`${tmpl.headerBg} h-24 flex items-end justify-between p-3 relative overflow-hidden`}>
+                                    <div className="absolute -top-4 -right-4 h-14 w-14 rounded-full bg-white/15 animate-float" />
+                                    <span className="text-3xl animate-bounce-in">{tmpl.emoji}</span>
                                     <span className={`${tmpl.badgeBg} ${tmpl.badgeText} text-xs font-bold px-2 py-0.5 rounded-full`}>20% OFF</span>
                                 </div>
                                 <div className="p-3">
@@ -381,13 +536,16 @@ export default function AdminAdsPage() {
                             || (templateForm.originalPrice && templateForm.offerPrice
                                 ? Math.round((1 - +templateForm.offerPrice / +templateForm.originalPrice) * 100).toString()
                                 : '')
+                        const liveViewers = Math.max(3, Number(templateForm.viewersNow || 0) + viewerPulse)
+                        const stockLeft = Math.max(1, Number(templateForm.stockLeft || 0))
+                        const countdown = formatCountdown(templateForm.end_date, previewNowMs)
                         return (
                             <div className="grid lg:grid-cols-2 gap-6 animate-fade-in">
 
                                 {/* Live Preview */}
                                 <div>
                                     <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">Live Preview</h3>
-                                    <div className={`rounded-2xl overflow-hidden shadow-xl`}>
+                                    <div className={`rounded-2xl overflow-hidden shadow-xl border border-border-color`}>
                                         <div className={`relative ${tmpl.headerBg}`}>
                                             {templateForm.productImage ? (
                                                 <div className="relative h-44 overflow-hidden">
@@ -425,9 +583,26 @@ export default function AdminAdsPage() {
                                                     )}
                                                 </div>
                                             )}
-                                            <div className={`inline-block mt-4 ${tmpl.badgeBg} ${tmpl.badgeText} text-sm font-bold px-5 py-2 rounded-full`}>
+                                            <div className={`inline-block mt-4 ${tmpl.badgeBg} ${tmpl.badgeText} text-sm font-bold px-5 py-2 rounded-full animate-bounce-in`}>
                                                 Shop Now →
                                             </div>
+
+                                            {templateForm.realtimeMode && (
+                                                <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
+                                                    <div className="rounded-lg bg-black/25 px-2 py-1.5 text-white/90">
+                                                        <p className="uppercase tracking-wide text-white/60">Live Viewers</p>
+                                                        <p className="font-bold text-cyan-200">{liveViewers}</p>
+                                                    </div>
+                                                    <div className="rounded-lg bg-black/25 px-2 py-1.5 text-white/90">
+                                                        <p className="uppercase tracking-wide text-white/60">Stock Left</p>
+                                                        <p className="font-bold text-amber-200">{stockLeft}</p>
+                                                    </div>
+                                                    <div className="rounded-lg bg-black/25 px-2 py-1.5 text-white/90">
+                                                        <p className="uppercase tracking-wide text-white/60">Ends In</p>
+                                                        <p className="font-bold text-rose-200 tabular-nums">{countdown}</p>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -495,6 +670,37 @@ export default function AdminAdsPage() {
                                                 />
                                             </div>
                                         </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="block text-xs font-medium text-text-secondary mb-1">Starting Viewers</label>
+                                                <input
+                                                    type="number" min={1}
+                                                    className="input w-full text-sm"
+                                                    placeholder="41"
+                                                    value={templateForm.viewersNow}
+                                                    onChange={e => setTemplateForm(f => ({ ...f, viewersNow: e.target.value }))}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-text-secondary mb-1">Stock Left</label>
+                                                <input
+                                                    type="number" min={1}
+                                                    className="input w-full text-sm"
+                                                    placeholder="24"
+                                                    value={templateForm.stockLeft}
+                                                    onChange={e => setTemplateForm(f => ({ ...f, stockLeft: e.target.value }))}
+                                                />
+                                            </div>
+                                        </div>
+                                        <label className="flex items-center gap-2 text-xs text-text-secondary">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4"
+                                                checked={templateForm.realtimeMode}
+                                                onChange={e => setTemplateForm(f => ({ ...f, realtimeMode: e.target.checked }))}
+                                            />
+                                            Enable realtime strip (countdown, viewer pulse, stock urgency)
+                                        </label>
                                         <div>
                                             <label className="block text-xs font-medium text-text-secondary mb-1">Link URL</label>
                                             <input
@@ -535,14 +741,26 @@ export default function AdminAdsPage() {
                                             </button>
                                             <button
                                                 onClick={() => {
+                                                    if (templateForm.productImage && templateForm.productImage.length > 2048) {
+                                                        toast.error('Image URL is too long. Use a shorter direct image URL.')
+                                                        return
+                                                    }
+                                                    if (templateForm.linkUrl && templateForm.linkUrl.length > 2048) {
+                                                        toast.error('Link URL is too long. Keep it below 2048 characters.')
+                                                        return
+                                                    }
+
                                                     const payload = {
                                                         title: templateForm.productName || tmpl.name,
-                                                        subtitle: templateForm.tagline || (discPct ? `${discPct}% OFF` : tmpl.desc),
                                                         description: templateForm.originalPrice && templateForm.offerPrice
                                                             ? `Was \u20b9${templateForm.originalPrice} \u00b7 Now \u20b9${templateForm.offerPrice}`
                                                             : tmpl.desc,
-                                                        image_url: templateForm.productImage,
-                                                        link_url: templateForm.linkUrl,
+                                                        // Append realtime hints to subtitle so storefront copy stays urgency-focused.
+                                                        subtitle: templateForm.realtimeMode
+                                                            ? `${templateForm.tagline || (discPct ? `${discPct}% OFF` : tmpl.desc)} · ${stockLeft} left · ${liveViewers} viewing`
+                                                            : templateForm.tagline || (discPct ? `${discPct}% OFF` : tmpl.desc),
+                                                        image_url: templateForm.productImage.trim(),
+                                                        link_url: templateForm.linkUrl.trim(),
                                                         banner_type: tmpl.bannerType,
                                                         display_order: 0,
                                                         start_date: templateForm.start_date,

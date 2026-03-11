@@ -2,14 +2,14 @@ import { useQuery } from '@tanstack/react-query'
 import { storeApi } from '@/lib/api'
 import ProductCard3D from '@/components/ui/ProductCard3D'
 import { Link, useNavigate } from 'react-router-dom'
-import { 
-    ArrowRight, 
-    Package, 
-    Sparkles, 
-    TrendingUp, 
-    Shield, 
+import {
+    ArrowRight,
+    Package,
+    Sparkles,
+    TrendingUp,
+    Shield,
     Truck,
-    Star 
+    Star
 } from 'lucide-react'
 import PromotionalBanner from '@/components/marketing/PromotionalBanner'
 import FlashSaleTimer from '@/components/marketing/FlashSaleTimer'
@@ -19,6 +19,8 @@ import Button3D from '@/components/ui/Button3D'
 
 export default function HomePage() {
     const navigate = useNavigate()
+    const categorySpanPattern = ['bento-item-large', 'bento-item-wide', 'bento-item-tall', '', '', 'bento-item-wide']
+    const categoryStagger = ['[animation-delay:0ms]', '[animation-delay:90ms]', '[animation-delay:180ms]', '[animation-delay:270ms]', '[animation-delay:360ms]', '[animation-delay:450ms]']
 
     useQuery({
         queryKey: ['store-info'],
@@ -63,15 +65,15 @@ export default function HomePage() {
                             </p>
 
                             <div className="flex flex-wrap gap-4 pt-4 mb-10">
-                                <Button3D 
-                                    onClick={() => navigate('/products')} 
+                                <Button3D
+                                    onClick={() => navigate('/products')}
                                     className="w-48"
                                 >
                                     Shop Now
                                 </Button3D>
-                                <Button3D 
+                                <Button3D
                                     variant="secondary"
-                                    onClick={() => navigate('/categories')} 
+                                    onClick={() => navigate('/categories')}
                                     className="w-48"
                                 >
                                     View Offers
@@ -128,11 +130,14 @@ export default function HomePage() {
                 </section>
 
                 {categoriesData && categoriesData.length > 0 && (
-                    <section className="mb-16">
-                        <div className="flex items-center justify-between mb-8">
+                    <section className="mb-16 relative overflow-hidden rounded-3xl border border-border-color bg-gradient-to-br from-bg-primary via-bg-primary to-theme-primary/5 p-5 md:p-8">
+                        <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-theme-primary/15 blur-3xl animate-float" />
+                        <div className="pointer-events-none absolute -left-8 bottom-8 h-28 w-28 rounded-full bg-cyan-500/15 blur-3xl animate-float [animation-delay:700ms]" />
+
+                        <div className="relative z-10 flex items-center justify-between mb-8">
                             <div>
                                 <h2 className="section-title">Shop by Category</h2>
-                                <p className="section-subtitle">Explore our wide range of products</p>
+                                <p className="section-subtitle">Discover curated collections with an immersive category map</p>
                             </div>
                             <Link
                                 to="/products"
@@ -144,43 +149,34 @@ export default function HomePage() {
                         </div>
                         <div className="bento-grid">
                             {categoriesData?.slice(0, 10).map((category: any, idx: number) => {
-                                const spans = [
-                                    'bento-item-large',
-                                    'bento-item-wide',
-                                    'bento-item-tall',
-                                    '',
-                                    '',
-                                    'bento-item-wide',
-                                ]
-                                const spanClass = spans[idx % spans.length]
+                                const spanClass = categorySpanPattern[idx % categorySpanPattern.length]
+                                const delayClass = categoryStagger[idx % categoryStagger.length]
 
                                 return (
                                     <Link
                                         key={category?.id || idx}
                                         to={`/products?category_id=${category.id}`}
-                                        className={`card card-interactive group overflow-hidden flex flex-col items-center justify-center p-4 hover-lift-premium ${spanClass}`}
-                                        style={{ animationDelay: `${idx * 50}ms` }}
+                                        className={`card card-interactive category-grid-card group overflow-hidden flex flex-col items-center justify-center p-4 sm:p-5 hover-lift-premium animate-slide-up ${delayClass} ${spanClass}`}
                                     >
-                                        <div className="absolute inset-0 bg-gradient-to-br from-theme-primary/5 to-theme-accent/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        
+                                        <div className="absolute inset-0 bg-gradient-to-br from-theme-primary/10 via-transparent to-cyan-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                        <div className="absolute top-4 right-4 h-1.5 w-1.5 rounded-full bg-theme-primary/70 group-hover:animate-ping" />
+
                                         <div className="relative z-10 flex flex-col items-center gap-4 text-center">
-                                            <div className={`rounded-2xl bg-theme-primary/10 text-theme-primary group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 flex items-center justify-center
+                                            <div className={`rounded-2xl bg-theme-primary/10 text-theme-primary group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 flex items-center justify-center shadow-glow-sm
                                                 ${spanClass === 'bento-item-large' ? 'h-20 w-20' : 'h-12 w-12'}
                                             `}>
                                                 <Package className={`${spanClass === 'bento-item-large' ? 'h-10 w-10' : 'h-6 w-6'}`} />
                                             </div>
-                                            
+
                                             <div>
                                                 <h3 className={`font-bold text-text-primary group-hover:text-theme-primary transition-colors
                                                     ${spanClass === 'bento-item-large' ? 'text-xl' : 'text-sm md:text-base'}
                                                 `}>
                                                     {category.name}
                                                 </h3>
-                                                {spanClass && (
-                                                    <p className="text-xs text-text-tertiary mt-1 hidden md:block opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        Browse Collection
-                                                    </p>
-                                                )}
+                                                <p className="text-xs text-text-tertiary mt-1 hidden md:block opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                    Explore Collection
+                                                </p>
                                             </div>
                                         </div>
                                     </Link>

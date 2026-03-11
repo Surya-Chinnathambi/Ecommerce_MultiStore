@@ -9,9 +9,11 @@ echo "========================================="
 echo "Waiting for database..."
 DB_RETRIES=30
 until python -c "
-import psycopg2, os, sys
+import socket, urllib.parse, os, sys
 try:
-    psycopg2.connect(os.environ['DATABASE_URL'])
+    url = urllib.parse.urlparse(os.environ['DATABASE_URL'].replace('postgresql+pg8000', 'postgresql'))
+    s = socket.create_connection((url.hostname, url.port or 5432), timeout=2)
+    s.close()
     sys.exit(0)
 except Exception:
     sys.exit(1)

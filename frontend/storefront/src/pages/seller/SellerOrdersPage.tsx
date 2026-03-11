@@ -4,7 +4,7 @@ import { sellerApi } from '@/lib/api'
 import { Link } from 'react-router-dom'
 import {
     ShoppingBag, Search, X,
-    IndianRupee, Package
+    IndianRupee
 } from 'lucide-react'
 import PaginationControls from '@/components/ui/PaginationControls'
 import StatusBadge from '@/components/ui/StatusBadge'

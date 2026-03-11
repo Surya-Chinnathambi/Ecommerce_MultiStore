@@ -9,13 +9,14 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from uuid import UUID
 from fastapi import Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, or_, and_, desc
 
 from app.core.database import get_db
 from app.core.config import settings
 from app.models.models import Order, OrderItem, Product, Store, OrderStatus, PaymentStatus
 from app.models.marketplace_models import Coupon, CouponUsage, CouponType
+from app.models.auth_models import User
 from app.services.websocket_manager import notify_new_order
 from app.services.cache_service import cache_service
 from app.core.redis import redis_client, CacheKeys
@@ -233,6 +234,118 @@ class OrderService:
         order.updated_at = datetime.utcnow()
         self.db.flush()
         return order
+
+    @staticmethod
+    def _normalize_phone(phone: Optional[str]) -> str:
+        if not phone:
+            return ""
+        return "".join(ch for ch in phone if ch.isdigit())
+
+    def list_customer_orders(
+        self,
+        *,
+        store_id: UUID,
+        current_user: User,
+        page: int,
+        per_page: int,
+        status_filter: Optional[str] = None,
+        search: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Return paginated customer orders with robust identity matching and rich payload."""
+        normalized_phone = self._normalize_phone(getattr(current_user, "phone", None))
+
+        identity_conditions = [Order.user_id == current_user.id]
+        if current_user.email:
+            identity_conditions.append(func.lower(Order.customer_email) == current_user.email.lower())
+        if normalized_phone:
+            identity_conditions.append(
+                func.regexp_replace(func.coalesce(Order.customer_phone, ""), r"\\D", "", "g") == normalized_phone
+            )
+
+        query = self.db.query(Order).options(
+            joinedload(Order.items).joinedload(OrderItem.product)
+        ).filter(
+            and_(
+                Order.store_id == store_id,
+                or_(*identity_conditions),
+            )
+        )
+
+        if status_filter and status_filter != "all":
+            query = query.filter(Order.order_status == status_filter)
+
+        if search:
+            pattern = f"%{search.strip()}%"
+            query = query.filter(
+                or_(
+                    Order.order_number.ilike(pattern),
+                    Order.customer_name.ilike(pattern),
+                    Order.customer_email.ilike(pattern),
+                    Order.items.any(OrderItem.product_name.ilike(pattern)),
+                )
+            )
+
+        total = query.count()
+        orders = query.order_by(desc(Order.created_at))\
+            .offset((page - 1) * per_page)\
+            .limit(per_page)\
+            .all()
+
+        orders_data: List[Dict[str, Any]] = []
+        for order in orders:
+            status_value = order.order_status.value if hasattr(order.order_status, "value") else str(order.order_status)
+            payment_value = order.payment_status.value if hasattr(order.payment_status, "value") else str(order.payment_status)
+            orders_data.append(
+                {
+                    "id": str(order.id),
+                    "order_number": order.order_number,
+                    "order_status": status_value,
+                    "payment_status": payment_value,
+                    "payment_method": order.payment_method,
+                    "subtotal": float(order.subtotal or 0),
+                    "tax_amount": float(order.tax_amount or 0),
+                    "delivery_charge": float(order.delivery_charge or 0),
+                    "total_amount": float(order.total_amount or 0),
+                    "created_at": order.created_at.isoformat() if order.created_at else None,
+                    "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+                    "expected_delivery_date": order.expected_delivery_date.isoformat() if order.expected_delivery_date else None,
+                    "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,
+                    "items": [
+                        {
+                            "id": str(item.id),
+                            "product_name": item.product_name,
+                            "quantity": item.quantity,
+                            "unit_price": float(item.unit_price),
+                            "total": float(item.total),
+                            "product": {
+                                "id": str(item.product.id) if item.product else None,
+                                "image_url": (
+                                    item.product.images[0]
+                                    if item.product and getattr(item.product, "images", None)
+                                    else None
+                                ),
+                            } if item.product else None,
+                        }
+                        for item in order.items
+                    ],
+                    "shipping_address": {
+                        "address": order.delivery_address,
+                        "city": order.delivery_city,
+                        "state": order.delivery_state,
+                        "postal_code": order.delivery_pincode,
+                    },
+                }
+            )
+
+        return {
+            "orders": orders_data,
+            "meta": {
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": (total + per_page - 1) // per_page,
+            },
+        }
 
 def get_order_service(db: Session = Depends(get_db)):
     return OrderService(db)
