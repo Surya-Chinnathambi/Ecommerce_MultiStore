@@ -112,8 +112,25 @@ def get_read_db():
 # Event listeners for connection pool monitoring
 @event.listens_for(engine, "connect")
 def receive_connect(dbapi_conn, connection_record):
-    """Log new database connections"""
+    """Configure connection-level safety guards and log new DB sessions."""
     logger.debug("Database connection established")
+    if settings.DB_STATEMENT_TIMEOUT_MS <= 0:
+        return
+
+    # Postgres: ensure runaway queries are terminated so worker throughput
+    # remains healthy under burst traffic.
+    try:
+        timeout_ms = int(settings.DB_STATEMENT_TIMEOUT_MS)
+        cursor = dbapi_conn.cursor()
+        cursor.execute(f"SET statement_timeout = {timeout_ms}")
+        cursor.close()
+    except Exception:
+        try:
+            dbapi_conn.rollback()
+        except Exception:
+            pass
+        # Ignore for non-Postgres drivers or restricted permissions.
+        logger.debug("Skipping DB statement timeout setup", exc_info=True)
 
 
 @event.listens_for(engine, "checkout")

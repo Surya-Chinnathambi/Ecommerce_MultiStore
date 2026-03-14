@@ -32,6 +32,32 @@ Write-Host ""
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $scriptPath
 
+# Backend preflight for local Python environments
+if (Test-Path ".venv-backend\Scripts\python.exe") {
+    Write-Host "Running backend preflight checks..." -ForegroundColor Yellow
+    & .\.venv-backend\Scripts\python.exe .\backend\scripts\preflight.py
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Preflight reported issues. Continuing with Docker startup." -ForegroundColor Yellow
+        Write-Host "Use manage.ps1 option 13 for strict local backend validation." -ForegroundColor Yellow
+    } else {
+        Write-Host "✓ Backend preflight passed" -ForegroundColor Green
+    }
+    Write-Host ""
+} elseif (Test-Path ".venv\Scripts\python.exe") {
+    Write-Host "Running backend preflight checks..." -ForegroundColor Yellow
+    & .\.venv\Scripts\python.exe .\backend\scripts\preflight.py
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Preflight reported issues. Continuing with Docker startup." -ForegroundColor Yellow
+        Write-Host "Use manage.ps1 option 13 for strict local backend validation." -ForegroundColor Yellow
+    } else {
+        Write-Host "✓ Backend preflight passed" -ForegroundColor Green
+    }
+    Write-Host ""
+} else {
+    Write-Host "Skipping local preflight (.venv not found)." -ForegroundColor Gray
+    Write-Host ""
+}
+
 # Check if .env exists
 if (-not (Test-Path "backend\.env")) {
     Write-Host "Creating backend/.env from template..." -ForegroundColor Yellow

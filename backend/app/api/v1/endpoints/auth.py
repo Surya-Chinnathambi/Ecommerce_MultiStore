@@ -19,11 +19,13 @@ from app.core.security import (
     generate_password_reset_token,
     blacklist_token,
     check_account_locked,
+    record_failed_login,
     clear_failed_logins,
     generate_api_key,
     hash_api_key,
     create_token_pair,
     rotate_refresh_token,
+    decode_token,
 )
 from app.models.auth_models import User, UserRole, Address, APIKey
 from app.models.models import Store, Order

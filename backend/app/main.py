@@ -5,6 +5,7 @@ Enterprise Multi-Tenant E-Commerce Platform
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import time
@@ -119,6 +120,7 @@ app = FastAPI(
 
 # Add middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)  # Compress responses > 1KB
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.TRUSTED_HOSTS)
 
 # Correlation ID must be registered FIRST so every downstream middleware and
 # handler can access request.state.correlation_id and the response header is set.
@@ -142,7 +144,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
-    expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Request-ID"]
+    expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Request-ID", "Retry-After"]
 )
 app.add_middleware(TenantMiddleware)
 app.add_middleware(RateLimitMiddleware)

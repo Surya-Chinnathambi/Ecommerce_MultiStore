@@ -6,9 +6,10 @@ from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 import time
 import logging
+from ipaddress import ip_address
 
 from app.core.config import settings
-from app.core.redis import redis_client, CacheKeys
+from app.core.redis import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 return settings.RATE_LIMIT_TIER2_SYNC, 60
             else:
                 return settings.RATE_LIMIT_TIER3_SYNC, 60
+
+        # Authentication API - tighter controls against brute-force abuse
+        elif path.startswith("/api/v1/auth/login"):
+            return settings.RATE_LIMIT_AUTH_LOGIN, 60
+        elif path.startswith("/api/v1/auth/register"):
+            return settings.RATE_LIMIT_AUTH_REGISTER, 60
+        elif path.startswith("/api/v1/auth/refresh"):
+            return settings.RATE_LIMIT_AUTH_REFRESH, 60
         
         # Storefront API - per IP
         elif "/api/v1/storefront/" in path:
@@ -103,12 +112,66 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     
     def get_identifier(self, request: Request) -> str:
         """Get identifier for rate limiting (IP or store_id)"""
+        client_ip = self._get_client_ip(request)
+
         # For sync API, use store_id
         if "/api/v1/sync/" in request.url.path:
             return getattr(request.state, "store_id", "unknown")
+
+        # Keep storefront limits isolated per-tenant to prevent one busy store
+        # from exhausting shared IP limits across all stores.
+        if "/api/v1/storefront/" in request.url.path:
+            store_id = getattr(request.state, "store_id", "unknown")
+            return f"{store_id}:{client_ip}"
         
         # For storefront, use IP address
-        return request.client.host if request.client else "unknown"
+        return client_ip
+
+    @staticmethod
+    def _is_proxy_trusted(remote_ip: str) -> bool:
+        """Return True when the direct peer is an allowed reverse proxy."""
+        if not settings.TRUST_PROXY_HEADERS:
+            return False
+        if not remote_ip:
+            return False
+
+        trusted = set(settings.TRUSTED_PROXY_IPS or [])
+        if "*" in trusted:
+            return True
+
+        try:
+            remote = ip_address(remote_ip)
+        except ValueError:
+            return False
+
+        for trusted_ip in trusted:
+            try:
+                if remote == ip_address(trusted_ip):
+                    return True
+            except ValueError:
+                continue
+        return False
+
+    def _get_client_ip(self, request: Request) -> str:
+        """
+        Resolve client IP safely.
+        Trust X-Forwarded-For only when request comes from a trusted proxy.
+        """
+        remote_ip = request.client.host if request.client else "unknown"
+        if not self._is_proxy_trusted(remote_ip):
+            return remote_ip
+
+        forwarded_for = request.headers.get("x-forwarded-for", "")
+        if forwarded_for:
+            first_hop = forwarded_for.split(",", 1)[0].strip()
+            if first_hop:
+                return first_hop
+
+        forwarded_real_ip = request.headers.get("x-real-ip", "").strip()
+        if forwarded_real_ip:
+            return forwarded_real_ip
+
+        return remote_ip
     
     @staticmethod
     def _normalize_endpoint(path: str) -> str:

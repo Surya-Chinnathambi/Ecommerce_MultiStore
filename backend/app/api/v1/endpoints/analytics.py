@@ -22,7 +22,6 @@ from app.schemas.review_analytics_schemas import (
     DashboardStats, SalesChartData,
     InventoryAlertResponse, InventoryAlertCreate
 )
-from app.api.v1.endpoints.auth import get_current_user
 from app.middleware.tenant import get_current_store_id
 from app.schemas.schemas import APIResponse
 
@@ -122,7 +121,7 @@ async def get_dashboard_stats(
             "id": str(p.id),
             "name": p.name,
             "sku": p.sku,
-            "price": p.price,
+            "price": p.selling_price,
             "units_sold": p.total_sold,
             "revenue": p.total_revenue
         }
@@ -140,7 +139,7 @@ async def get_dashboard_stats(
             "order_number": o.order_number,
             "customer_name": o.customer_name,
             "total_amount": o.total_amount,
-            "status": o.status,
+            "status": o.order_status,
             "created_at": o.created_at.isoformat()
         }
         for o in recent_orders_data
@@ -553,7 +552,7 @@ async def export_orders_csv(
         Order.created_at >= since,
     )
     if order_status:
-        q = q.filter(Order.status == order_status)
+        q = q.filter(Order.order_status == order_status)
 
     orders = q.order_by(Order.created_at.desc()).all()
 
@@ -574,7 +573,7 @@ async def export_orders_csv(
             writer.writerow([
                 o.order_number,
                 o.created_at.strftime("%Y-%m-%d %H:%M:%S") if o.created_at else "",
-                o.status,
+                o.order_status,
                 o.payment_status,
                 getattr(o, "customer_name", "") or "",
                 getattr(o, "customer_phone", "") or "",

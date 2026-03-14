@@ -4,6 +4,7 @@ Identifies and validates store based on domain/subdomain
 """
 from fastapi import Request, HTTPException, status, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from sqlalchemy.orm import Session
 from uuid import UUID
 import logging
@@ -35,6 +36,18 @@ class TenantMiddleware(BaseHTTPMiddleware):
     """
     
     async def dispatch(self, request: Request, call_next):
+        def _error_response(code: int, detail: str) -> JSONResponse:
+            return JSONResponse(
+                status_code=code,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "STORE_CONTEXT_ERROR",
+                        "message": detail,
+                    },
+                },
+            )
+
         # Skip middleware for health check and docs
         if request.url.path in ["/health", "/", "/api/docs", "/api/redoc", "/api/openapi.json"]:
             return await call_next(request)
@@ -72,10 +85,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # Validate store found and active
         if store is not None:
             if not store.is_active:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Store is not active"
-                )
+                return _error_response(status.HTTP_403_FORBIDDEN, "Store is not active")
             
             # Set store in request state
             request.state.store = store
@@ -90,10 +100,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
                     request.state.store_id = str(default_store.id)
             else:
                 # Strictly require store for non-public endpoints
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Store not found"
-                )
+                return _error_response(status.HTTP_404_NOT_FOUND, "Store not found")
         
         response = await call_next(request)
         return response
@@ -105,7 +112,11 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # Check cache
         cached_store = await redis_client.get_json(cache_key)
         if cached_store:
-            return Store(**cached_store)
+            if "is_active" not in cached_store:
+                # Legacy cache payloads can miss fields required by middleware.
+                await redis_client.delete(cache_key)
+            else:
+                return Store(**cached_store)
         
         # Query database
         db = SessionLocal()
@@ -131,7 +142,10 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # Check cache
         cached_store = await redis_client.get_json(cache_key)
         if cached_store:
-            return Store(**cached_store)
+            if "is_active" not in cached_store:
+                await redis_client.delete(cache_key)
+            else:
+                return Store(**cached_store)
         
         # Query database
         db = SessionLocal()
@@ -158,7 +172,10 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # Check cache
         cached_store = await redis_client.get_json(cache_key)
         if cached_store:
-            return Store(**cached_store)
+            if "is_active" not in cached_store:
+                await redis_client.delete(cache_key)
+            else:
+                return Store(**cached_store)
         
         # Query database
         db = SessionLocal()

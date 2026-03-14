@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     
     # CORS - Allow all origins in development
     ALLOWED_ORIGINS: List[str] = ["*"]
+    TRUSTED_HOSTS: List[str] = ["localhost", "127.0.0.1", "*.localhost"]
+    TRUST_PROXY_HEADERS: bool = True
+    TRUSTED_PROXY_IPS: List[str] = ["127.0.0.1", "::1"]
     
     # Database
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/ecommerce_platform"
@@ -62,6 +65,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_TIER3_SYNC: int = 200
     RATE_LIMIT_STOREFRONT: int = 100  # per IP
     RATE_LIMIT_DASHBOARD: int = 200
+    RATE_LIMIT_AUTH_LOGIN: int = 20
+    RATE_LIMIT_AUTH_REGISTER: int = 10
+    RATE_LIMIT_AUTH_REFRESH: int = 60
     
     # Sync Engine
     SYNC_BATCH_SIZE_TIER1: int = 200
@@ -170,6 +176,11 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "[production] ALLOWED_ORIGINS must not be '*' — "
                     "set explicit origin domains."
+                )
+            if self.TRUSTED_HOSTS == ["*"]:
+                raise ValueError(
+                    "[production] TRUSTED_HOSTS must not be '*' — "
+                    "set explicit hostnames."
                 )
             if len(self.SECRET_KEY) < 32:
                 raise ValueError(

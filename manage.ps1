@@ -22,6 +22,8 @@ function Show-Menu {
     Write-Host "  [10] Open Monitoring Dashboard" -ForegroundColor Cyan
     Write-Host "  [11] Clean Docker (Remove all containers & volumes)" -ForegroundColor Red
     Write-Host "  [12] Rebuild All Services" -ForegroundColor Yellow
+    Write-Host "  [13] Backend Preflight Check" -ForegroundColor Yellow
+    Write-Host "  [14] Bootstrap Backend Python Env" -ForegroundColor Yellow
     Write-Host "  [0] Exit" -ForegroundColor Gray
     Write-Host ""
 }
@@ -107,6 +109,27 @@ function Rebuild-Services {
     Write-Host "✅ Rebuild complete" -ForegroundColor Green
 }
 
+function Run-BackendPreflight {
+    Write-Host "Running backend preflight checks..." -ForegroundColor Yellow
+    if (Test-Path ".venv-backend\Scripts\python.exe") {
+        & .\.venv-backend\Scripts\python.exe .\backend\scripts\preflight.py
+        return
+    }
+
+    if (Test-Path ".venv\Scripts\python.exe") {
+        & .\.venv\Scripts\python.exe .\backend\scripts\preflight.py
+        return
+    }
+
+    Write-Host "Local virtual environment not found at .venv\Scripts\python.exe" -ForegroundColor Red
+    Write-Host "Tip: run option 14 to bootstrap a compatible backend virtual environment." -ForegroundColor Yellow
+}
+
+function Bootstrap-BackendEnv {
+    Write-Host "Bootstrapping backend Python environment..." -ForegroundColor Yellow
+    & .\bootstrap_backend_env.ps1 -PythonVersion auto -VenvPath ".venv-backend"
+}
+
 # Main loop
 do {
     Show-Menu
@@ -126,6 +149,8 @@ do {
         "10" { Open-Monitoring }
         "11" { Clean-Docker }
         "12" { Rebuild-Services }
+        "13" { Run-BackendPreflight }
+        "14" { Bootstrap-BackendEnv }
         "0" { 
             Write-Host "👋 Goodbye!" -ForegroundColor Cyan
             break
